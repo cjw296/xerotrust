@@ -4,6 +4,7 @@ from pprint import pprint
 import click
 from pathlib import Path
 
+from .authentication import authenticate
 
 
 class Config:
@@ -29,6 +30,9 @@ def cli(ctx: click.Context, config_path: Path) -> None:
 @click.pass_obj
 def login(config: Config) -> None:
     """Authenticate and store credentials."""
+    client_secret = getpass(prompt='Client secret: ')
+    credentials = authenticate(client_secret)
+    pprint(credentials.get_tenants())
 
 
 
