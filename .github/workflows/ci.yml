@@ -9,7 +9,7 @@ on:
 
 jobs:
   ci:
-    uses: cjw296/python-workflow/.github/workflows/uv-ci.yml@v2
+    uses: cjw296/python-workflow/.github/workflows/uv-ci.yml@main
     with:
       package: xerotrust
       python-versions: '[ "3.13" ]'
