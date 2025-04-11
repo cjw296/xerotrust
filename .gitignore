@@ -7,5 +7,6 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
+# All dotfiles, excluding git ones
+.*
+!.git*
