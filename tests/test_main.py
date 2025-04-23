@@ -1,42 +1,141 @@
-import pytest
-from click.testing import CliRunner
+import json
+import time
 from pathlib import Path
+from typing import Any, Iterator
+from unittest.mock import Mock
 
+import pytest
+from click.testing import CliRunner, Result
+from testfixtures import compare, replace_in_module, mock_time
+from xero.auth import OAuth2PKCECredentials
+
+from xerotrust import main
+from xerotrust.authentication import authenticate, SCOPES
 from xerotrust.main import cli
 
-# TODO: Remove this once tests are implemented
-pytestmark = pytest.mark.skip(reason="Tests not yet implemented")
+XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 
 
-def test_login_default_config() -> None:
-    """Test the login command with the default config path."""
-    runner = CliRunner()
-    result = runner.invoke(cli, ['login'])
-    assert result.exit_code == 0
-    assert "Login command called. Config path: .xerotrust.yml" in result.output
+def run_cli(
+    auth_path: Path, *args: str, input: str | None = None, expected_return_code: int = 0
+) -> Result:
+    args_ = ['--auth', str(auth_path)]
+    args_.extend(args)
+    result = CliRunner().invoke(cli, args_, catch_exceptions=False, input=input)
+    compare(result.exit_code, expected=expected_return_code, suffix=result.output)
+    return result
 
 
-def test_login_custom_config(tmp_path: Path) -> None:
-    """Test the login command with a custom config path."""
-    config_file = tmp_path / "custom_config.yml"
-    runner = CliRunner()
-    result = runner.invoke(cli, ['--config', str(config_file), 'login'])
-    assert result.exit_code == 0
-    assert f"Login command called. Config path: {config_file}" in result.output
+def check_auth_file(auth_path: Path) -> None:
+    compare(
+        expected={
+            'client_id': 'CLIENT_ID',
+            'client_secret': 'FOO',
+            'token': {'access_token': 'test_token'},
+        },
+        actual=json.loads(auth_path.read_text()),
+    )
 
 
-def test_dump_default_config() -> None:
-    """Test the dump command with the default config path."""
-    runner = CliRunner()
-    result = runner.invoke(cli, ['dump'])
-    assert result.exit_code == 0
-    assert "Dump command called. Config path: .xerotrust.yml" in result.output
+def add_tenants_response(pook: Any) -> None:
+    pook.get(
+        XERO_CONNECTIONS_URL,
+        reply=200,
+        response_json=[{'id': 't1', 'tenantName': 'Tenant 1'}],
+    )
 
 
-def test_dump_custom_config(tmp_path: Path) -> None:
-    """Test the dump command with a custom config path."""
-    config_file = tmp_path / "custom_config.yml"
-    runner = CliRunner()
-    result = runner.invoke(cli, ['--config', str(config_file), 'dump'])
-    assert result.exit_code == 0
-    assert f"Dump command called. Config path: {config_file}" in result.output
+class TestLogin:
+    @pytest.fixture(autouse=True)
+    def mock_authenticate(self) -> Iterator[Mock]:
+        mock_authenticate = Mock(spec=authenticate)
+        mock_authenticate.return_value = OAuth2PKCECredentials(
+            client_id='CLIENT_ID',
+            client_secret='FOO',
+            scope=SCOPES,
+            token={'access_token': 'test_token'},
+        )
+        with replace_in_module(authenticate, mock_authenticate, module=main):
+            yield mock_authenticate
+
+    def test_login_with_client_id_option(
+        self, mock_authenticate: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        auth_path = tmp_path / '.xerotrust.json'
+        add_tenants_response(pook)
+
+        result = run_cli(auth_path, 'login', '--client-id', 'test_client_id_option')
+
+        mock_authenticate.assert_called_once_with('test_client_id_option')
+        check_auth_file(auth_path)
+        compare(result.output, expected='\nAvailable tenants:\n- t1: Tenant 1\n')
+
+    def test_login_prompt_for_client_id(
+        self, mock_authenticate: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        auth_path = tmp_path / '.xerotrust.json'
+        add_tenants_response(pook)
+
+        result = run_cli(auth_path, 'login', input='test_client_id_prompt\n')
+
+        compare(
+            result.output,
+            expected='Client ID: \n\nAvailable tenants:\n- t1: Tenant 1\n',
+        )
+        mock_authenticate.assert_called_once_with('test_client_id_prompt')
+        check_auth_file(auth_path)
+
+    def test_login_client_id_from_auth_file(
+        self, mock_authenticate: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        auth_path = tmp_path / '.xerotrust.json'
+        add_tenants_response(pook)
+        auth_path.write_text(json.dumps({'client_id': 'existing_client_id'}))
+
+        result = run_cli(auth_path, 'login', input='\n')
+
+        compare(
+            result.output,
+            expected='Client ID: \n\nAvailable tenants:\n- t1: Tenant 1\n',
+        )
+        mock_authenticate.assert_called_once_with('existing_client_id')
+        check_auth_file(auth_path)
+
+    def test_login_no_client_id(self, mock_authenticate: Mock, tmp_path: Path) -> None:
+        auth_path = tmp_path / '.xerotrust.json'
+
+        result = run_cli(auth_path, 'login', input='\n', expected_return_code=1)
+
+        compare(
+            result.output,
+            expected=f'Client ID: \nError: No Client ID provided or found in {auth_path}.\n',
+        )
+        mock_authenticate.assert_not_called()
+        assert not auth_path.exists()
+
+    def test_login_with_expires_in(
+        self, mock_authenticate: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        """Test the login command calculates expired_at from expires_in."""
+        auth_path = tmp_path / '.xerotrust.json'
+        add_tenants_response(pook)
+
+        mock_authenticate.return_value.token = {'access_token': 'test_token', 'expires_in': 3600}
+
+        mock = mock_time(delta=0)
+
+        with replace_in_module(time, mock, module=time):
+            run_cli(auth_path, 'login', '--client-id', 'ID')
+
+        compare(
+            expected={
+                'client_id': 'CLIENT_ID',
+                'client_secret': 'FOO',
+                'token': {
+                    'access_token': 'test_token',
+                    'expires_in': 3600,
+                    'expires_at': mock() + 3600,
+                },
+            },
+            actual=json.loads(auth_path.read_text()),
+        )

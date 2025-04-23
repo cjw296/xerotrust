@@ -1,40 +1,59 @@
-from getpass import getpass
+import json
+import time
+from pathlib import Path
 from pprint import pprint
 
 import click
-from pathlib import Path
 
-
-
-class Config:
-    def __init__(self, path: Path) -> None:
-        self.path = path
+from .authentication import authenticate
 
 
 @click.group()
 @click.option(
-    '--config',
-    'config_path',
+    '--auth',
+    'auth_path',
     type=click.Path(path_type=Path),
-    default=Path('.xerotrust.yml'),
-    help='Path to the configuration file.'
+    default=Path('.xerotrust.json'),
+    help='Path to the authentication file.',
 )
 @click.pass_context
-def cli(ctx: click.Context, config_path: Path) -> None:
-    """Xerotrust command line interface."""
-    ctx.obj = Config(path=config_path)
+def cli(ctx: click.Context, auth_path: Path) -> None:
+    ctx.obj = auth_path
 
 
 @cli.command()
 @click.pass_obj
-def login(config: Config) -> None:
-    """Authenticate and store credentials."""
+@click.option('--client-id', default="")
+def login(auth_path: Path, client_id: str) -> None:
+    """Authenticate with Xero and store credentials."""
+    if not client_id:
+        client_id = click.prompt(
+            'Client ID', hide_input=True, prompt_suffix=': ', default='', show_default=False
+        )
+    if not client_id and auth_path.exists():
+        auth_data = json.loads(auth_path.read_text())
+        client_id = auth_data.get('client_id', '')
 
+    if not client_id:
+        raise click.ClickException(f'No Client ID provided or found in {auth_path}.')
 
+    now = time.time()
+    credentials = authenticate(client_id)
+    if 'expires_in' in credentials.token and 'expired_at' not in credentials.token:
+        credentials.token['expires_at'] = now + credentials.token['expires_in']
 
-@cli.command()
-@click.pass_obj
-def dump(config: Config) -> None:
-    """Dump stored credentials."""
-    click.echo(f"Dump command called. Config path: {config.path}")
-    # Implementation to follow
+    # Display tenants
+    print('\nAvailable tenants:')
+    for tenant in credentials.get_tenants():
+        print(f'- {tenant["id"]}: {tenant["tenantName"]}')
+
+    # Save authentication data
+    auth_path.write_text(
+        json.dumps(
+            {
+                'client_id': credentials.client_id,
+                'client_secret': credentials.client_secret,
+                'token': credentials.token,
+            }
+        )
+    )
