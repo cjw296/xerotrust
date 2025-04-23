@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.115.12",
     "hypercorn>=0.17.3",
     "jinja2>=3.1.6",
+    "pook>=2.1.3",
     "pyxero>=0.9.4",
 ]
 
@@ -31,6 +32,7 @@ dev = [
     "httpx>=0.28.1",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
     "testfixtures>=8.3.0",
 ]
@@ -47,9 +49,16 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = [
+    "pook",
+    "oauthlib.common",
+    "requests_oauthlib",
     "testfixtures",
+    "xero.*",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100
