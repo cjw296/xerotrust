@@ -52,7 +52,7 @@ module = [
     "pook",
     "oauthlib.*",
     "requests_oauthlib",
-    "testfixtures",
+    "testfixtures.*",
     "xero.*",
 ]
 ignore_missing_imports = true

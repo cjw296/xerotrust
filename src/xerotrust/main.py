@@ -3,12 +3,13 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 import click
 from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
+from .check import check_journals, show_summary
 from .export import EXPORTS, FileManager
 from .transform import TRANSFORMERS, show
 
@@ -203,3 +204,36 @@ def export(auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path:
                 exporter = EXPORTS[endpoint]
                 for row in exporter.items(manager):
                     files.write(row, tenant_path / exporter.name(row))
+
+
+@cli.group()
+def journals() -> None:
+    """Commands for working with journals."""
+    pass
+
+
+@journals.command('check')
+@click.argument(
+    'paths',
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    nargs=-1,
+    required=True,
+)
+def check_command(paths: tuple[Path, ...]) -> None:
+    """
+    Check journals export files for duplicate IDs, duplicate numbers, and number gaps.
+
+    Accepts one or more PATHS. Shell globbing (e.g., *.jsonl) can be used.
+    """
+
+    def journal_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
+        for path_ in paths_:
+            with path_.open() as source:
+                for line in source:
+                    yield json.loads(line)
+
+    check_journals(
+        show_summary(
+            journal_stream(paths), fields=['JournalNumber', 'JournalDate', 'CreatedDateUTC']
+        )
+    )
