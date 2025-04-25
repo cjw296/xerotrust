@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import importlib.resources
+import json
 import webbrowser
 from contextvars import ContextVar
 from pathlib import Path
@@ -114,3 +115,18 @@ def authenticate(
     client_id: str, host: str = "localhost", port: int = 12010
 ) -> OAuth2PKCECredentials:
     return asyncio.run(_authenticate(client_id, host, port))
+
+
+def credentials_from_file(path: Path) -> OAuth2PKCECredentials:
+    data = json.loads(path.read_text())
+    credentials = OAuth2PKCECredentials(**data, scope=SCOPES)
+    credentials._init_oauth(data['token'])
+    if credentials.expired():
+        try:
+            credentials.refresh()
+        except Exception as e:
+            e.add_note("You will need to run `xerotrust login` now!")
+            raise
+        data['token'] = credentials.token
+        path.write_text(json.dumps(data))
+    return credentials
