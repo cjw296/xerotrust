@@ -1,7 +1,10 @@
 import asyncio
+import json
+import time
 import webbrowser
 from asyncio import Event
 from contextvars import ContextVar
+from pathlib import Path
 from socket import socket
 from typing import Iterator, Any
 from unittest.mock import MagicMock, Mock, call
@@ -10,6 +13,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from oauthlib.common import generate_token
+from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
 from requests_oauthlib import oauth2_session
 from testfixtures import (
     Replace,
@@ -30,6 +34,7 @@ from xerotrust.authentication import (
     shutdown_event,
     _authenticate,
     authenticate,
+    credentials_from_file,
     SCOPES,
 )
 from xerotrust.exceptions import XeroAPIException
@@ -211,3 +216,85 @@ def test_authenticate() -> None:
             call.asyncio_run(credentials),
         ],
     )
+
+
+class TestCredentialsFromFile:
+    @staticmethod
+    def make_auth_data(expires_at: float = 0) -> dict[str, Any]:
+        return {
+            'client_id': 'test_client_id',
+            'client_secret': 'test_client_secret',
+            'token': {
+                'access_token': 'current_access_token',
+                'refresh_token': 'current_refresh_token',
+                # Not expired by default, credentials.refresh() was 30s lifetime:
+                'expires_at': expires_at or (time.time() + 40),
+                'scope': SCOPES,
+            },
+        }
+
+    def test_load_valid_credentials(self, tmp_path: Path) -> None:
+        auth_data = self.make_auth_data()
+        auth_path = tmp_path / "auth.json"
+        auth_path.write_text(json.dumps(auth_data))
+
+        credentials = credentials_from_file(auth_path)
+
+        compare(credentials.client_id, expected=auth_data['client_id'])
+        compare(credentials.client_secret, expected=auth_data['client_secret'])
+        compare(credentials.token, expected=auth_data['token'])
+
+    def test_load_expired_credentials_refresh_success(self, tmp_path: Path, pook: Any) -> None:
+        auth_data = self.make_auth_data(expires_at=time.time() - 1)
+        auth_path = tmp_path / "auth.json"
+        auth_path.write_text(json.dumps(auth_data))
+
+        new_token_data = {
+            'access_token': 'new_access_token',
+            'refresh_token': 'new_refresh_token',
+            # if expires_in is in here, here oauthlib populates expires_at from it!
+            'expires_at': 1234.5678,
+            'scope': SCOPES,
+        }
+        # Mock the refresh token endpoint
+        (
+            pook.post(XERO_OAUTH2_TOKEN_URL)
+            .body(pook.regex(f"grant_type=refresh_token.+"))
+            .reply(200)
+            .json(new_token_data)
+        )
+
+        credentials = credentials_from_file(auth_path)
+
+        # Check credentials object
+        compare(credentials.client_id, expected=auth_data['client_id'])
+        compare(credentials.client_secret, expected=auth_data['client_secret'])
+        compare(credentials.token, expected=new_token_data)
+
+        # Check updated file content
+        compare(
+            json.loads(auth_path.read_text()),
+            expected={
+                'client_id': 'test_client_id',
+                'client_secret': 'test_client_secret',
+                # make sure the new token data is here so we have both the new access token
+                # and the new refresh token saved:
+                'token': new_token_data,
+            },
+        )
+
+    def test_load_expired_credentials_refresh_failure(self, tmp_path: Path, pook: Any) -> None:
+        auth_data = self.make_auth_data(expires_at=time.time() - 1)
+        auth_path = tmp_path / "auth.json"
+        original_file_content = json.dumps(auth_data)
+        auth_path.write_text(original_file_content)
+
+        # Mock the refresh token endpoint to return an invalid_grant error
+        (pook.post(XERO_OAUTH2_TOKEN_URL).reply(400).json({"error": "invalid_grant"}))
+
+        with ShouldRaise(InvalidGrantError) as s:
+            credentials_from_file(auth_path)
+
+        compare(s.raised.__notes__, expected=['You will need to run `xerotrust login` now!'])
+        # Ensure the file was not modified:
+        compare(auth_path.read_text(), expected=original_file_content)

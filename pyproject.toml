@@ -50,7 +50,7 @@ disallow_incomplete_defs = true
 [[tool.mypy.overrides]]
 module = [
     "pook",
-    "oauthlib.common",
+    "oauthlib.*",
     "requests_oauthlib",
     "testfixtures",
     "xero.*",
