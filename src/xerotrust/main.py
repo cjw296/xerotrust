@@ -1,8 +1,11 @@
 import json
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Iterable
 
 import click
+from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .transform import TRANSFORMERS, show
@@ -91,3 +94,57 @@ def tenants(auth_path: Path, transform: tuple[str], field: tuple[str], newline: 
     """Show the accessible tenants."""
     credentials = credentials_from_file(auth_path)
     show(credentials.get_tenants(), transform, field, newline)
+
+
+@cli.command()
+@click.argument(
+    'endpoint',
+    type=click.Choice(Xero.OBJECT_LIST, case_sensitive=False),
+)
+@click.option(
+    '--tenant',
+    type=str,
+    help='Tenant ID, otherwise first tenant is used',
+)
+@click.option(
+    '-i',
+    '--id',
+    'id_',
+    help='Only return this entity',
+)
+@transform_options
+@click.option('--since', type=click.DateTime())
+@click.option('--offset', type=int)
+@click.pass_obj
+def explore(
+    auth_path: Path,
+    endpoint: str,
+    tenant: str | None,
+    transform: tuple[str],
+    field: tuple[str],
+    newline: bool,
+    id_: str | None,
+    since: datetime | None,
+    offset: int | None,
+) -> None:
+    """Explore a specific Xero API endpoint."""
+    credentials = credentials_from_file(auth_path)
+    if tenant is None:
+        credentials.set_default_tenant()
+    else:
+        credentials.tenant_id = tenant
+    xero = Xero(credentials)
+
+    manager = getattr(xero, endpoint.lower())
+    items: Iterable[dict[str, Any]]
+
+    if id_:
+        items = manager.get(id_)
+    elif since:
+        items = manager.filter(since=since)
+    elif offset:
+        items = manager.filter(offset=offset)
+    else:
+        items = manager.all()
+
+    show(items, transform, field, newline)
