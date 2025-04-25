@@ -1,6 +1,7 @@
 import json
 import time
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Iterator
 from unittest.mock import Mock
 
@@ -10,7 +11,7 @@ from testfixtures import compare, replace_in_module, mock_time
 from xero.auth import OAuth2PKCECredentials
 
 from xerotrust import main
-from xerotrust.authentication import authenticate, SCOPES
+from xerotrust.authentication import authenticate, SCOPES, credentials_from_file
 from xerotrust.main import cli
 
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
@@ -45,18 +46,21 @@ def add_tenants_response(pook: Any) -> None:
     )
 
 
+SAMPLE_CREDENTIALS = OAuth2PKCECredentials(
+    client_id='CLIENT_ID',
+    client_secret='FOO',
+    scope=SCOPES,
+    token={'access_token': 'test_token'},
+)
+
+
 class TestLogin:
     @pytest.fixture(autouse=True)
     def mock_authenticate(self) -> Iterator[Mock]:
-        mock_authenticate = Mock(spec=authenticate)
-        mock_authenticate.return_value = OAuth2PKCECredentials(
-            client_id='CLIENT_ID',
-            client_secret='FOO',
-            scope=SCOPES,
-            token={'access_token': 'test_token'},
-        )
-        with replace_in_module(authenticate, mock_authenticate, module=main):
-            yield mock_authenticate
+        mock = Mock(spec=authenticate)
+        mock.return_value = SAMPLE_CREDENTIALS
+        with replace_in_module(authenticate, mock, module=main):
+            yield mock
 
     def test_login_with_client_id_option(
         self, mock_authenticate: Mock, tmp_path: Path, pook: Any
@@ -138,4 +142,80 @@ class TestLogin:
                 },
             },
             actual=json.loads(auth_path.read_text()),
+        )
+
+
+class TestTenants:
+    @pytest.fixture(autouse=True)
+    def mock_credentials_from_file(self) -> Iterator[Mock]:
+        mock = Mock(spec=credentials_from_file)
+        mock.return_value = SAMPLE_CREDENTIALS
+        with replace_in_module(credentials_from_file, mock, module=main):
+            yield mock
+
+    def test_tenants_default(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        pook.get(
+            XERO_CONNECTIONS_URL,
+            reply=200,
+            # connections endpoint doesn't return the weird Date() format found elsewhere:
+            response_json=[{'id': 'xx', 'createDateUtc': '2025-04-10T14:09:00.9954070'}],
+        )
+        result = run_cli(tmp_path, 'tenants')
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+        compare(
+            result.output, expected='{"id": "xx", "createDateUtc": "2025-04-10T14:09:00.9954070"}\n'
+        )
+
+    def test_tenants_transform_tenant_name(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        pook.get(
+            XERO_CONNECTIONS_URL,
+            reply=200,
+            response_json=[
+                {'id': 't1', 'tenantName': 'Tenant 1'},
+                {'id': 't2', 'tenantName': 'Tenant 2'},
+            ],
+        )
+
+        result = run_cli(tmp_path, 'tenants', '-t', 'tenant')
+
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+        compare(result.output, expected='Tenant 1\nTenant 2\n')
+
+    def test_tenants_transform_pretty(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        pook.get(
+            XERO_CONNECTIONS_URL,
+            reply=200,
+            response_json=[
+                {
+                    'id': 't1',
+                    'tenantName': 'Tenant 1',
+                    "createDateUtc": "2025-04-10T14:09:00.9954070",
+                },
+                {
+                    'id': 't2',
+                    'tenantName': 'Tenant 2',
+                    "createDateUtc": "2025-04-11T14:09:00.9954070",
+                },
+            ],
+        )
+
+        result = run_cli(tmp_path, 'tenants', '-t', 'pretty')
+
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+        compare(
+            result.output,
+            expected=dedent("""\
+                {'createDateUtc': '2025-04-10T14:09:00.9954070',
+                 'id': 't1',
+                 'tenantName': 'Tenant 1'}
+                {'createDateUtc': '2025-04-11T14:09:00.9954070',
+                 'id': 't2',
+                 'tenantName': 'Tenant 2'}
+         """),
         )
