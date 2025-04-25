@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from .authentication import authenticate, credentials_from_file
-from .transform import TRANSFORMERS
+from .transform import TRANSFORMERS, show
 
 
 @click.group()
@@ -59,12 +59,35 @@ def login(auth_path: Path, client_id: str) -> None:
     )
 
 
+def transform_options(func: Any) -> Any:
+    for option in (
+        click.option(
+            '-t',
+            '--transform',
+            type=click.Choice(list(TRANSFORMERS.keys())),
+            multiple=True,
+        ),
+        click.option(
+            '-f',
+            '--field',
+            multiple=True,
+        ),
+        click.option(
+            '-n',
+            '--newline',
+            is_flag=True,
+            default=False,
+            help='Add a newline between row transforms instead of a space',
+        ),
+    ):
+        func = option(func)
+    return func
+
+
 @cli.command()
 @click.pass_obj
-@click.option('-t', '--transform', type=click.Choice(list(TRANSFORMERS.keys())), default='json')
-def tenants(auth_path: Path, transform: str) -> None:
+@transform_options
+def tenants(auth_path: Path, transform: tuple[str], field: tuple[str], newline: bool) -> None:
     """Show the accessible tenants."""
     credentials = credentials_from_file(auth_path)
-    transformer = TRANSFORMERS[transform]
-    for tenant in credentials.get_tenants():
-        print(transformer(tenant))
+    show(credentials.get_tenants(), transform, field, newline)

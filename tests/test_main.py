@@ -180,7 +180,7 @@ class TestTenants:
             ],
         )
 
-        result = run_cli(tmp_path, 'tenants', '-t', 'tenant')
+        result = run_cli(tmp_path, 'tenants', '-f', 'tenantName')
 
         mock_credentials_from_file.assert_called_once_with(tmp_path)
         compare(result.output, expected='Tenant 1\nTenant 2\n')
