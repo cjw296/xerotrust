@@ -5,7 +5,8 @@ from pprint import pprint
 
 import click
 
-from .authentication import authenticate
+from .authentication import authenticate, credentials_from_file
+from .transform import TRANSFORMERS
 
 
 @click.group()
@@ -57,3 +58,14 @@ def login(auth_path: Path, client_id: str) -> None:
             }
         )
     )
+
+
+@cli.command()
+@click.pass_obj
+@click.option('-t', '--transform', type=click.Choice(list(TRANSFORMERS.keys())), default='json')
+def tenants(auth_path: Path, transform: str) -> None:
+    """Show the accessible tenants."""
+    credentials = credentials_from_file(auth_path)
+    transformer = TRANSFORMERS[transform]
+    for tenant in credentials.get_tenants():
+        print(transformer(tenant))
