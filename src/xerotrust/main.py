@@ -1,7 +1,6 @@
 import json
 import time
 from pathlib import Path
-from pprint import pprint
 
 import click
 
