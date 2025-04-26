@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import date
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Iterator
@@ -9,6 +10,7 @@ import pytest
 from click.testing import CliRunner, Result
 from testfixtures import compare, replace_in_module, mock_time
 from xero.auth import OAuth2PKCECredentials
+from xero.utils import parse_date
 
 from xerotrust import main
 from xerotrust.authentication import authenticate, SCOPES, credentials_from_file
@@ -380,8 +382,6 @@ class TestExplore:
                     {
                         'ContactID': 'c1',
                         'Name': 'Contact 1',
-                        # pyxero turns this into a date:
-                        'UpdatedDateUTC': '2023-03-15T00:00:00',
                         # Represents 2023-03-15T13:20:00+00:00, pyxero turns this into a datetime:
                         'CreatedDateUTC': '/Date(1678886400000+0000)/',
                     }
@@ -394,7 +394,6 @@ class TestExplore:
             result.output,
             expected=(
                 '{"ContactID": "c1", "Name": "Contact 1", '
-                '"UpdatedDateUTC": "2023-03-15", '
                 '"CreatedDateUTC": "2023-03-15T13:20:00+00:00"}\n'
             ),
         )

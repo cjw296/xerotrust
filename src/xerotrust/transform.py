@@ -13,8 +13,6 @@ class XeroEncoder(json.JSONEncoder):
             case datetime():
                 # looking at pyxero.utils.parse_date suggests we'll have a naive datetime in utc:
                 return obj.astimezone(timezone.utc).isoformat()
-            case date():
-                return obj.isoformat()
             case _:
                 return super().default(obj)
 
