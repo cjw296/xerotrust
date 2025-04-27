@@ -7,14 +7,11 @@ from typing import Any, Callable, TypeAlias, Sequence, Iterable
 Transformer: TypeAlias = Callable[[Any], Any]
 
 
-class XeroEncoder(json.JSONEncoder):
+class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
-        match obj:
-            case datetime():
-                # looking at pyxero.utils.parse_date suggests we'll have a naive datetime in utc:
-                return obj.astimezone(timezone.utc).isoformat()
-            case _:
-                return super().default(obj)
+        assert isinstance(obj, datetime), f'Unexpected type: {type(obj)}, {obj!r}'
+        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime in utc:
+        return obj.astimezone(timezone.utc).isoformat()
 
 
 def itemgetter(key: str, default: Any = None) -> Callable[[dict[str, Any]], Any]:
@@ -25,7 +22,7 @@ def itemgetter(key: str, default: Any = None) -> Callable[[dict[str, Any]], Any]
 
 
 TRANSFORMERS: dict[str, Transformer] = {
-    'json': partial(json.dumps, cls=XeroEncoder),
+    'json': partial(json.dumps, cls=DateTimeEncoder),
     'pretty': pformat,
 }
 
