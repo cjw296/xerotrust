@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from datetime import date
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Iterator
@@ -11,7 +10,6 @@ import pytest
 from click.testing import CliRunner, Result
 from testfixtures import compare, replace_in_module, mock_time, Replacer
 from xero.auth import OAuth2PKCECredentials
-from xero.utils import parse_date
 
 from xerotrust import export
 from xerotrust import main
