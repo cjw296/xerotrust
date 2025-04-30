@@ -13,10 +13,12 @@ from testfixtures import compare, replace_in_module, mock_time, Replacer
 from xero.auth import OAuth2PKCECredentials
 from xero.utils import parse_date
 
+from xerotrust import export
 from xerotrust import main
 from xerotrust.authentication import authenticate, SCOPES, credentials_from_file
 from xerotrust.main import cli
 from xerotrust.transform import show
+from .helpers import FileChecker
 
 XERO_API_URL = "https://api.xero.com/api.xro/2.0"
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
@@ -415,4 +417,185 @@ class TestExplore:
                 '{"ContactID": "c1", "Name": "Contact 1", '
                 '"CreatedDateUTC": "2023-03-15T13:20:00+00:00"}\n'
             ),
+        )
+
+
+class TestExport:
+    def test_export_all_endpoints_single_tenant(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Accounts': [{'AccountID': 'a1', 'Name': 'Acc 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path))
+
+        check_files(
+            {
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Acc 1"}\n',
+                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+            }
+        )
+
+    def test_export_specific_endpoint_multiple_tenants(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(
+            pook,
+            [
+                {'tenantId': 't1', 'tenantName': 'Tenant 1'},
+                {'tenantId': 't2', 'tenantName': 'Tenant 2'},
+            ],
+        )
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't2'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c2', 'Name': 'Cont 2'}]},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), 'contacts')
+
+        check_files(
+            {
+                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2"}\n',
+                'Tenant 2/tenant.json': '{"tenantId": "t2", "tenantName": "Tenant 2"}\n',
+            },
+        )
+
+    def test_export_journals_uses_journals_export(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [
+                    {
+                        'JournalID': 'j1',
+                        'JournalDate': '/Date(1678838400000+0000)/',  # 2023-03-15
+                        'JournalNumber': 1,
+                    },
+                    {
+                        'JournalID': 'j2',
+                        'JournalDate': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        'JournalNumber': 2,
+                    },
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'offset': '2'},
+            reply=200,
+            response_json={'Status': 'OK', 'Journals': []},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'journals')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/journals-2023-03.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
+                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
+                ),
+            }
+        )
+
+    def test_export_journals_with_rate_limit(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # First request hits rate limit
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=429,  # Rate limit exceeded
+            response_headers={'retry-after': '1'},  # Server responds with retry-after header
+        )
+
+        # Second request (after retry) succeeds
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'offset': '0'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [
+                    {
+                        'JournalID': 'j1',
+                        'JournalDate': '/Date(1681948800000+0000)/',
+                        'JournalNumber': 1,
+                    },
+                ],
+            },
+        )
+
+        # End of pagination
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'offset': '1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [],
+            },
+        )
+
+        # Mock the sleep function to avoid actually waiting
+        mock_sleep = Mock()
+
+        with replace_in_module(time.sleep, mock_sleep, module=export):
+            # Run the export command for journals only
+            run_cli(tmp_path, 'export', 'journals', '--path', str(tmp_path))
+
+        # Verify sleep was called with retry-after value
+        mock_sleep.assert_called_once_with(1)
+
+        # Verify the journal was exported after retrying
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/journals-2023-04.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "2023-04-19T23:00:00+00:00", "JournalNumber": 1}\n'
+                ),
+            }
         )
