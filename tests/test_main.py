@@ -34,6 +34,14 @@ def run_cli(
     return result
 
 
+@pytest.fixture(autouse=True)
+def mock_credentials_from_file() -> Iterator[Mock]:
+    mock = Mock(spec=credentials_from_file)
+    mock.return_value = SAMPLE_CREDENTIALS
+    with replace_in_module(credentials_from_file, mock, module=main):
+        yield mock
+
+
 def check_auth_file(auth_path: Path) -> None:
     compare(
         expected={
@@ -252,13 +260,6 @@ class TestLogLevel:
 
 
 class TestExplore:
-    @pytest.fixture(autouse=True)
-    def mock_credentials_from_file(self) -> Iterator[Mock]:
-        mock = Mock(spec=credentials_from_file)
-        mock.return_value = SAMPLE_CREDENTIALS
-        with replace_in_module(credentials_from_file, mock, module=main):
-            yield mock
-
     def test_explore_simple(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
