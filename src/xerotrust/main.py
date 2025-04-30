@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -19,9 +20,16 @@ from .transform import TRANSFORMERS, show
     default=Path('.xerotrust.json'),
     help='Path to the authentication file.',
 )
+@click.option(
+    '-l',
+    '--log-level',
+    type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']),
+)
 @click.pass_context
-def cli(ctx: click.Context, auth_path: Path) -> None:
+def cli(ctx: click.Context, auth_path: Path, log_level: str | None) -> None:
     ctx.obj = auth_path
+    if log_level:
+        logging.basicConfig(level=getattr(logging, log_level))
 
 
 @cli.command()
