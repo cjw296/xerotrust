@@ -56,7 +56,7 @@ def login(auth_path: Path, client_id: str) -> None:
     # Display tenants
     print('\nAvailable tenants:')
     for tenant in credentials.get_tenants():
-        print(f'- {tenant["id"]}: {tenant["tenantName"]}')
+        print(f'- {tenant["tenantId"]}: {tenant["tenantName"]}')
 
     # Save authentication data
     auth_path.write_text(

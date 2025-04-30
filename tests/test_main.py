@@ -45,11 +45,12 @@ def check_auth_file(auth_path: Path) -> None:
     )
 
 
-def add_tenants_response(pook: Any) -> None:
+def add_tenants_response(pook: Any, tenants: list[dict[str, str]] | None = None) -> None:
     pook.get(
         XERO_CONNECTIONS_URL,
         reply=200,
-        response_json=[{'id': 't1', 'tenantName': 'Tenant 1'}],
+        # id and tenantID are not the same here, we need to use tenantId
+        response_json=tenants or [{'id': 'bad', 'tenantId': 't1', 'tenantName': 'Tenant 1'}],
     )
 
 
