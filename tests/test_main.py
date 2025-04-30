@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from datetime import date
 from pathlib import Path
@@ -8,13 +9,14 @@ from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner, Result
-from testfixtures import compare, replace_in_module, mock_time
+from testfixtures import compare, replace_in_module, mock_time, Replacer
 from xero.auth import OAuth2PKCECredentials
 from xero.utils import parse_date
 
 from xerotrust import main
 from xerotrust.authentication import authenticate, SCOPES, credentials_from_file
 from xerotrust.main import cli
+from xerotrust.transform import show
 
 XERO_API_URL = "https://api.xero.com/api.xro/2.0"
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
@@ -224,6 +226,28 @@ class TestTenants:
                  'tenantName': 'Tenant 2'}
          """),
         )
+
+
+class TestLogLevel:
+    @pytest.fixture(autouse=True)
+    def mocks(self) -> Iterator[Mock]:
+        mocks_ = Mock()
+        mocks_.basicConfig = Mock(spec=logging.basicConfig)
+        mocks_.credentials_from_file = Mock(spec=credentials_from_file)
+        mocks_.show = Mock(spec=show)
+        with Replacer() as replace:
+            replace.in_module(logging.basicConfig, mocks_.basicConfig)
+            replace.in_module(credentials_from_file, mocks_.credentials_from_file, module=main)
+            replace.in_module(show, mocks_.show, module=main)
+            yield mocks_
+
+    def test_log_level_option(self, tmp_path: Path, mocks: Mock) -> None:
+        run_cli(tmp_path, '--log-level', 'DEBUG', 'tenants')
+        mocks.basicConfig.assert_called_once_with(level=logging.DEBUG)
+
+    def test_log_level_shorthand(self, tmp_path: Path, mocks: Mock) -> None:
+        run_cli(tmp_path, '-l', 'WARNING', 'tenants')
+        mocks.basicConfig.assert_called_once_with(level=logging.WARNING)
 
 
 class TestExplore:
