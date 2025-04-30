@@ -259,13 +259,6 @@ class TestExplore:
         with replace_in_module(credentials_from_file, mock, module=main):
             yield mock
 
-    def add_tenants_response(self, pook: Any) -> None:
-        pook.get(
-            XERO_CONNECTIONS_URL,
-            reply=200,
-            response_json=[{'tenantId': 't1', 'tenantName': 'Tenant 1'}],
-        )
-
     def test_explore_simple(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
@@ -308,7 +301,7 @@ class TestExplore:
     def test_explore_with_entity_id(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             f"{XERO_CONTACTS_URL}/c3",
             reply=200,
@@ -323,7 +316,7 @@ class TestExplore:
     def test_explore_with_since(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             XERO_JOURNALS_URL,
             headers={'If-Modified-Since': "Sun, 20 Apr 2025 00:00:00 GMT"},
@@ -339,7 +332,7 @@ class TestExplore:
     def test_explore_with_offset(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             XERO_JOURNALS_URL,
             params={'offset': '100'},
@@ -355,7 +348,7 @@ class TestExplore:
     def test_explore_with_field(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             XERO_CONTACTS_URL,
             reply=200,
@@ -373,7 +366,7 @@ class TestExplore:
     def test_explore_with_transform(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             XERO_CONTACTS_URL,
             reply=200,
@@ -397,7 +390,7 @@ class TestExplore:
     def test_explore_with_date_and_datetime_in_json(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        self.add_tenants_response(pook)
+        add_tenants_response(pook)
         pook.get(
             XERO_CONTACTS_URL,
             reply=200,
