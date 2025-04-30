@@ -9,6 +9,7 @@ import click
 from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
+from .export import EXPORTS, FileManager
 from .transform import TRANSFORMERS, show
 
 
@@ -156,3 +157,49 @@ def explore(
         items = manager.all()
 
     show(items, transform, field, newline)
+
+
+@cli.command()
+@click.argument(
+    'endpoints',
+    type=click.Choice(list(EXPORTS.keys()), case_sensitive=False),
+    nargs=-1,
+)
+@click.option(
+    '-t',
+    '--tenant',
+    'tenant_ids',
+    type=str,
+    help='Tenant ID, otherwise all tenants are exported',
+    multiple=True,
+)
+@click.option(
+    '--path',
+    type=click.Path(path_type=Path, file_okay=False, writable=True),
+    default=Path.cwd(),
+    help='The path into which data should be exported',
+)
+@click.pass_obj
+def export(auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path: Path) -> None:
+    """Export data from Xero API endpoints."""
+    credentials = credentials_from_file(auth_path)
+    xero = Xero(credentials)
+
+    all_tenant_data = {t["tenantId"]: t for t in credentials.get_tenants()}
+    if not tenant_ids:
+        tenant_ids = all_tenant_data.keys()
+
+    if not endpoints:
+        endpoints = EXPORTS.keys()
+
+    with FileManager(serializer=TRANSFORMERS['json']) as files:
+        for tenant_id in tenant_ids:
+            tenant_data = all_tenant_data[tenant_id]
+            tenant_path = path / tenant_data["tenantName"]
+            files.write(tenant_data, tenant_path / "tenant.json")
+            credentials.tenant_id = tenant_id
+            for endpoint in endpoints:
+                manager = getattr(xero, endpoint.lower())
+                exporter = EXPORTS[endpoint]
+                for row in exporter.items(manager):
+                    files.write(row, tenant_path / exporter.name(row))
