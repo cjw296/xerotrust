@@ -6,9 +6,8 @@ import json
 import webbrowser
 from contextvars import ContextVar
 from pathlib import Path
+from typing import Awaitable, Callable
 from typing import cast
-
-from typing import Any, Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.templating import Jinja2Templates
