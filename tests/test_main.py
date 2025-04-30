@@ -418,17 +418,10 @@ class TestExplore:
 
 
 class TestExport:
-    @pytest.fixture()
-    def export_path(self, tmp_path: Path) -> Path:
-        path = tmp_path / 'export_dir'
-        path.mkdir()
-        return path
-
     def test_export_all_endpoints_single_tenant(
         self,
         mock_credentials_from_file: Mock,
         tmp_path: Path,
-        export_path: Path,
         pook: Any,
         check_files: FileChecker,
     ) -> None:
@@ -515,7 +508,7 @@ class TestExport:
             tmp_path,
             'export',
             '--path',
-            str(export_path),
+            str(tmp_path),
             '--tenant-id',
             't1',
             '--tenant-id',
@@ -531,10 +524,10 @@ class TestExport:
         # check_files operates relative to tmp_path
         check_files(
             {
-                'export_dir/t1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
-                'export_dir/t1/journals.jsonl': '{"JournalID": "j1", "JournalNumber": 1}\n',
-                'export_dir/t2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2"}\n',
-                'export_dir/t2/journals.jsonl': '{"JournalID": "j2", "JournalNumber": 2}\n',
+                't1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                't1/journals.jsonl': '{"JournalID": "j1", "JournalNumber": 1}\n',
+                't2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2"}\n',
+                't2/journals.jsonl': '{"JournalID": "j2", "JournalNumber": 2}\n',
             },
         )
 
@@ -542,7 +535,6 @@ class TestExport:
         self,
         mock_credentials_from_file: Mock,
         tmp_path: Path,
-        export_path: Path,
         pook: Any,
         check_files: FileChecker,
     ) -> None:
@@ -566,7 +558,7 @@ class TestExport:
             tmp_path,
             'export',
             '--path',
-            str(export_path),
+            str(tmp_path),
             '--tenant-id',
             't1',
             '--endpoint',
@@ -578,10 +570,10 @@ class TestExport:
         # JournalsExport names files by date
         check_files(
             {
-                'export_dir/t1/journals-2023-03-15.jsonl': (
+                't1/journals-2023-03-15.jsonl': (
                     '{"JournalID": "j1", "JournalDate": "/Date(1678838400000+0000)/"}\n'
                 ),
-                'export_dir/t1/journals-2023-03-16.jsonl': (
+                't1/journals-2023-03-16.jsonl': (
                     '{"JournalID": "j2", "JournalDate": "/Date(1678924800000+0000)/"}\n'
                 ),
             }
