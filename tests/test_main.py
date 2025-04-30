@@ -17,6 +17,7 @@ from xerotrust import main
 from xerotrust.authentication import authenticate, SCOPES, credentials_from_file
 from xerotrust.main import cli
 from xerotrust.transform import show
+from .helpers import FileChecker
 
 XERO_API_URL = "https://api.xero.com/api.xro/2.0"
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
@@ -415,4 +416,175 @@ class TestExplore:
                 '{"ContactID": "c1", "Name": "Contact 1", '
                 '"CreatedDateUTC": "2023-03-15T13:20:00+00:00"}\n'
             ),
+        )
+
+
+class TestExport:
+    @pytest.fixture()
+    def export_path(self, tmp_path: Path) -> Path:
+        path = tmp_path / 'export_dir'
+        path.mkdir()
+        return path
+
+    def test_export_all_endpoints_single_tenant(
+        self,
+        mock_credentials_from_file: Mock,
+        tmp_path: Path,
+        export_path: Path,
+        pook: Any,
+        check_files: FileChecker,
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Accounts': [{'AccountID': 'a1', 'Name': 'Acc 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path))
+
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+        # check_files operates relative to tmp_path
+        check_files(
+            {
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Acc 1"}\n',
+                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+            }
+        )
+
+    def test_export_specific_endpoints_multiple_tenants(
+        self,
+        mock_credentials_from_file: Mock,
+        tmp_path: Path,
+        export_path: Path,
+        pook: Any,
+        check_files: FileChecker,
+    ) -> None:
+        add_tenants_response(
+            pook,
+            [
+                {'tenantId': 't1', 'tenantName': 'Tenant 1'},
+                {'tenantId': 't2', 'tenantName': 'Tenant 2'},
+            ],
+        )
+
+        # Tenant 1 Mocks
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Journals': [{'JournalID': 'j1', 'JournalNumber': 1}]},
+        )
+        # Tenant 2 Mocks
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't2'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c2', 'Name': 'Cont 2'}]},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't2'},
+            reply=200,
+            response_json={'Status': 'OK', 'Journals': [{'JournalID': 'j2', 'JournalNumber': 2}]},
+        )
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(export_path),
+            '--tenant-id',
+            't1',
+            '--tenant-id',
+            't2',
+            '--endpoint',
+            'Contacts',
+            '--endpoint',
+            'journals',
+        )
+
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+
+        # check_files operates relative to tmp_path
+        check_files(
+            {
+                'export_dir/t1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'export_dir/t1/journals.jsonl': '{"JournalID": "j1", "JournalNumber": 1}\n',
+                'export_dir/t2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2"}\n',
+                'export_dir/t2/journals.jsonl': '{"JournalID": "j2", "JournalNumber": 2}\n',
+            },
+        )
+
+    def test_export_journals_uses_journals_export(
+        self,
+        mock_credentials_from_file: Mock,
+        tmp_path: Path,
+        export_path: Path,
+        pook: Any,
+        check_files: FileChecker,
+    ) -> None:
+        # This test specifically ensures the JournalsExport logic (naming and item extraction) works
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [
+                    {'JournalID': 'j1', 'JournalDate': '/Date(1678838400000+0000)/'},  # 2023-03-15
+                    {'JournalID': 'j2', 'JournalDate': '/Date(1678924800000+0000)/'},  # 2023-03-16
+                ],
+            },
+        )
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(export_path),
+            '--tenant-id',
+            't1',
+            '--endpoint',
+            'journals',
+        )
+
+        mock_credentials_from_file.assert_called_once_with(tmp_path)
+        # check_files operates relative to tmp_path
+        # JournalsExport names files by date
+        check_files(
+            {
+                'export_dir/t1/journals-2023-03-15.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "/Date(1678838400000+0000)/"}\n'
+                ),
+                'export_dir/t1/journals-2023-03-16.jsonl': (
+                    '{"JournalID": "j2", "JournalDate": "/Date(1678924800000+0000)/"}\n'
+                ),
+            }
         )

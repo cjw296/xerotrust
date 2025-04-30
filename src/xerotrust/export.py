@@ -1,7 +1,12 @@
-import json
+import logging
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Any, IO, Self, TypeAlias, Iterable
+from time import sleep
+from typing import Callable, Any, IO, Self, TypeAlias, Iterable
+
+from xero.exceptions import XeroRateLimitExceeded
+
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
 
 
@@ -18,6 +23,7 @@ class FileManager:
 
     def write(self, item: dict[str, Any], path: Path) -> None:
         if path not in self._open_files:
+            logging.info(f'opening {path}')
             if len(self._open_files) >= self.max_open_files:
                 oldest_path, oldest_file = self._open_files.popitem(last=False)
                 oldest_file.close()
@@ -44,3 +50,48 @@ class FileManager:
         traceback: Any | None,
     ) -> None:
         self.close()
+
+
+Namer: TypeAlias = Callable[[dict[str, Any]], str]
+
+
+def retry_on_rate_limit[T, **P](
+    manager_method: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+) -> T:
+    while True:
+        try:
+            return manager_method(*args, **kwargs)
+        except XeroRateLimitExceeded as e:
+            seconds = int(e.response.headers['retry-after'])
+            logging.warning(f'Rate limit exceeded, waiting {seconds} seconds')
+            sleep(seconds)
+
+
+@dataclass
+class Export:
+    file_name: str | None = None
+
+    def name(self, item: dict[str, Any]) -> str:
+        assert self.file_name is not None
+        return self.file_name
+
+    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
+        return manager.all()  # type: ignore[no-any-return]
+
+
+class JournalsExport(Export):
+    def name(self, item: dict[str, Any]) -> str:
+        return item['JournalDate'].strftime('journals-%Y-%m.jsonl')  # type: ignore[no-any-return]
+
+    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
+        offset = 0
+        while entries := retry_on_rate_limit(manager.filter, offset=offset):
+            yield from entries
+            offset = entries[-1]['JournalNumber']
+
+
+EXPORTS = {
+    'Accounts': Export("accounts.jsonl"),
+    'Contacts': Export("contacts.jsonl"),
+    'journals': JournalsExport(),
+}
