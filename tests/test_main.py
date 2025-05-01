@@ -465,7 +465,6 @@ class TestExport:
         self,
         mock_credentials_from_file: Mock,
         tmp_path: Path,
-        export_path: Path,
         pook: Any,
         check_files: FileChecker,
     ) -> None:
@@ -504,20 +503,7 @@ class TestExport:
             response_json={'Status': 'OK', 'Journals': [{'JournalID': 'j2', 'JournalNumber': 2}]},
         )
 
-        run_cli(
-            tmp_path,
-            'export',
-            '--path',
-            str(tmp_path),
-            '--tenant-id',
-            't1',
-            '--tenant-id',
-            't2',
-            '--endpoint',
-            'Contacts',
-            '--endpoint',
-            'journals',
-        )
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '-t', 't1', '-t', 't2')
 
         mock_credentials_from_file.assert_called_once_with(tmp_path)
 
@@ -548,22 +534,21 @@ class TestExport:
             response_json={
                 'Status': 'OK',
                 'Journals': [
-                    {'JournalID': 'j1', 'JournalDate': '/Date(1678838400000+0000)/'},  # 2023-03-15
-                    {'JournalID': 'j2', 'JournalDate': '/Date(1678924800000+0000)/'},  # 2023-03-16
+                    {
+                        'JournalID': 'j1',
+                        'JournalDate': '/Date(1678838400000+0000)/',  # 2023-03-15
+                        'JournalNumber': 1,
+                    },
+                    {
+                        'JournalID': 'j2',
+                        'JournalDate': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        'JournalNumber': 2,
+                    },
                 ],
             },
         )
 
-        run_cli(
-            tmp_path,
-            'export',
-            '--path',
-            str(tmp_path),
-            '--tenant-id',
-            't1',
-            '--endpoint',
-            'journals',
-        )
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'journals')
 
         mock_credentials_from_file.assert_called_once_with(tmp_path)
         # check_files operates relative to tmp_path

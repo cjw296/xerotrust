@@ -166,7 +166,8 @@ def explore(
     nargs=-1,
 )
 @click.option(
-    '-t,--tenant',
+    '-t',
+    '--tenant',
     'tenant_ids',
     type=str,
     help='Tenant ID, otherwise all tenants are exported',
