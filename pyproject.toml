@@ -59,6 +59,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # Filter warnings from xero library that we can't fix:
+    "ignore:datetime.datetime.utc.+\\(\\) is deprecated.*:DeprecationWarning:xero.+",
+]
 
 [tool.ruff]
 line-length = 100
