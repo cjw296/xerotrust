@@ -593,7 +593,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/journals-2023-04.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-04-19T23:00:00+00:00", "JournalNumber": 1}\n'
+                    '{"JournalID": "j1", "JournalDate": "2023-04-20T00:00:00+00:00", "JournalNumber": 1}\n'
                 ),
             }
         )
