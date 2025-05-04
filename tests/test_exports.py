@@ -83,3 +83,18 @@ class TestFileManager:
                 'testfile.dump': "{'name': 'testfile', 'value': 99}\n",
             },
         )
+
+    def test_overwrite_existing_files(self, tmp_path: Path, check_files: FileChecker) -> None:
+        (tmp_path / "file1.jsonl").write_text('THIS SHOULD BE OVERWRITTEN')
+        with FileManager(max_open_files=1, serializer=json.dumps) as fm:
+            fm.write({"data": 1}, tmp_path / f"file1.jsonl")
+            fm.write({"data": 2}, tmp_path / f"file2.jsonl")
+            fm.write({"data": 3}, tmp_path / f"file1.jsonl")
+            fm.write({"data": 4}, tmp_path / f"file2.jsonl")
+            assert len(fm._open_files) == 1
+        check_files(
+            {
+                'file1.jsonl': '{"data": 1}\n{"data": 3}\n',
+                'file2.jsonl': '{"data": 2}\n{"data": 4}\n',
+            },
+        )

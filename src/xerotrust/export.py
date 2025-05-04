@@ -20,6 +20,7 @@ class FileManager:
         self.max_open_files = max_open_files
         self.serializer = serializer
         self._open_files: "OrderedDict[Path, IO[str]]" = OrderedDict()
+        self._seen_paths: set[Path] = set()
 
     def write(self, item: dict[str, Any], path: Path) -> None:
         if path not in self._open_files:
@@ -28,10 +29,11 @@ class FileManager:
                 oldest_path, oldest_file = self._open_files.popitem(last=False)
                 oldest_file.close()
             path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-            self._open_files[path] = path.open('a', encoding='utf-8')
+            mode = 'w' if path not in self._seen_paths else 'a'
+            self._open_files[path] = path.open(mode, encoding='utf-8')
         else:
             self._open_files.move_to_end(path)
-
+        self._seen_paths.add(path)
         print(self.serializer(item), file=self._open_files[path])
 
     def close(self) -> None:
