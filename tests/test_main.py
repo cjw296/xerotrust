@@ -419,7 +419,7 @@ class TestExplore:
 
 
 class TestExport:
-    def test_export_all_endpoints_single_tenant(
+    def test_all_endpoints_single_tenant(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
@@ -456,7 +456,7 @@ class TestExport:
             }
         )
 
-    def test_export_specific_endpoint_multiple_tenants(
+    def test_specific_endpoint_multiple_tenants(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
         add_tenants_response(
@@ -490,7 +490,7 @@ class TestExport:
             },
         )
 
-    def test_export_journals_uses_journals_export(
+    def test_journals_uses_journals_export(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
@@ -535,7 +535,7 @@ class TestExport:
             }
         )
 
-    def test_export_journals_with_rate_limit(
+    def test_journals_with_rate_limit(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
