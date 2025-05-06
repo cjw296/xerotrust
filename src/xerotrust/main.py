@@ -1,5 +1,7 @@
+import csv
 import json
 import logging
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +12,7 @@ from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
-from .export import EXPORTS, FileManager, Split
+from .export import EXPORTS, FileManager, Split, ALL_JOURNAL_KEYS, flatten
 from .transform import TRANSFORMERS, show
 
 
@@ -220,6 +222,13 @@ def journals() -> None:
     pass
 
 
+def journal_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
+    for path_ in paths_:
+        with path_.open() as source:
+            for line in source:
+                yield json.loads(line)
+
+
 @journals.command('check')
 @click.argument(
     'paths',
@@ -234,14 +243,39 @@ def check_command(paths: tuple[Path, ...]) -> None:
     Accepts one or more PATHS. Shell globbing (e.g., *.jsonl) can be used.
     """
 
-    def journal_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
-        for path_ in paths_:
-            with path_.open() as source:
-                for line in source:
-                    yield json.loads(line)
-
     check_journals(
         show_summary(
             journal_stream(paths), fields=['JournalNumber', 'JournalDate', 'CreatedDateUTC']
         )
     )
+
+
+@journals.command('flatten')
+@click.argument(
+    'paths',
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    nargs=-1,
+    required=True,
+)
+@click.option(
+    '-o',
+    '--output',
+    'output_file',
+    type=click.File('w'),
+    default='-',
+    help='Output file path. Defaults to stdout.',
+)
+def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) -> None:
+    """
+    Flatten journal entries from JSONL files into CSV format.
+
+    Each JournalLine within a Journal becomes a row in the CSV,
+    combined with data from its parent Journal.
+    """
+    # The type hint for output_file from click.File('w') is IO[str],
+    # but click.utils.LazyFile is what's actually passed at runtime before it's opened.
+    # We'll let the csv.DictWriter handle the file object.
+    csv_writer = csv.DictWriter(output_file, fieldnames=ALL_JOURNAL_KEYS)
+    csv_writer.writeheader()
+    for row in flatten(journal_stream(paths)):
+        csv_writer.writerow(row)
