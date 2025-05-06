@@ -1,6 +1,7 @@
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from time import sleep
 from typing import Callable, Any, IO, Self, TypeAlias, Iterable
@@ -8,6 +9,21 @@ from typing import Callable, Any, IO, Self, TypeAlias, Iterable
 from xero.exceptions import XeroRateLimitExceeded
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
+
+
+class Split(StrEnum):
+    NONE = 'none'
+    YEARS = 'years'
+    MONTHS = 'months'
+    DAYS = 'days'
+
+
+SplitSuffix = {
+    Split.NONE: '',
+    Split.YEARS: '-%Y',
+    Split.MONTHS: '-%Y-%m',
+    Split.DAYS: '-%Y-%m-%d',
+}
 
 
 class FileManager:
@@ -73,7 +89,7 @@ def retry_on_rate_limit[T, **P](
 class Export:
     file_name: str | None = None
 
-    def name(self, item: dict[str, Any]) -> str:
+    def name(self, item: dict[str, Any], split: Split) -> str:
         assert self.file_name is not None
         return self.file_name
 
@@ -82,8 +98,9 @@ class Export:
 
 
 class JournalsExport(Export):
-    def name(self, item: dict[str, Any]) -> str:
-        return item['JournalDate'].strftime('journals-%Y-%m.jsonl')  # type: ignore[no-any-return]
+    def name(self, item: dict[str, Any], split: Split) -> str:
+        pattern = f'journals{SplitSuffix[split]}.jsonl'
+        return item['JournalDate'].strftime(pattern)  # type: ignore[no-any-return]
 
     def items(self, manager: Any) -> Iterable[dict[str, Any]]:
         offset = 0

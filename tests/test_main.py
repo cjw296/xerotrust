@@ -600,6 +600,134 @@ class TestExport:
             }
         )
 
+    def setup_journal_mocks(self, pook: Any, tenant_id: str = 't1') -> None:
+        """Helper to set up common pook mocks for journal exports."""
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': tenant_id},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Journals': [
+                    {
+                        'JournalID': 'j1',
+                        'JournalDate': '/Date(1678838400000+0000)/',  # 2023-03-15
+                        'JournalNumber': 1,
+                    },
+                    {
+                        'JournalID': 'j2',
+                        'JournalDate': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        'JournalNumber': 2,
+                    },
+                    {
+                        'JournalID': 'j3',
+                        'JournalDate': '/Date(1710460800000+0000)/',  # 2024-03-15
+                        'JournalNumber': 3,
+                    },
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Journals",
+            headers={'Xero-Tenant-Id': tenant_id},
+            params={'offset': '3'},
+            reply=200,
+            response_json={'Status': 'OK', 'Journals': []},
+        )
+
+    def test_journals_split_days(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_journal_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'journals',
+            '--split',
+            'days',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/journals-2023-03-15.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
+                ),
+                'Tenant 1/journals-2023-03-16.jsonl': (
+                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
+                ),
+                'Tenant 1/journals-2024-03-15.jsonl': (
+                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
+                ),
+            }
+        )
+
+    def test_journals_split_months(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_journal_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'journals',
+            '--split',
+            'months',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/journals-2023-03.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
+                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
+                ),
+                'Tenant 1/journals-2024-03.jsonl': (
+                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
+                ),
+            }
+        )
+
+    def test_journals_split_years(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_journal_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'journals',
+            '--split',
+            'years',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/journals-2023.jsonl': (
+                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
+                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
+                ),
+                'Tenant 1/journals-2024.jsonl': (
+                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
+                ),
+            }
+        )
+
 
 class TestJournalsCheck:
     def write_journal_file(self, path: Path, journals: list[dict[str, Any]]) -> None:
