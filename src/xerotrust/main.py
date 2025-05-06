@@ -10,7 +10,7 @@ from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
-from .export import EXPORTS, FileManager
+from .export import EXPORTS, FileManager, Split
 from .transform import TRANSFORMERS, show
 
 
@@ -180,8 +180,16 @@ def explore(
     default=Path.cwd(),
     help='The path into which data should be exported',
 )
+@click.option(
+    '--split',
+    type=click.Choice(Split, case_sensitive=False),  # type: ignore[arg-type]  # needs Click 8.2
+    default=Split.MONTHS,
+    help='How to split the exported files',
+)
 @click.pass_obj
-def export(auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path: Path) -> None:
+def export(
+    auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path: Path, split: Split
+) -> None:
     """Export data from Xero API endpoints."""
     credentials = credentials_from_file(auth_path)
     xero = Xero(credentials)
@@ -203,7 +211,7 @@ def export(auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path:
                 manager = getattr(xero, endpoint.lower())
                 exporter = EXPORTS[endpoint]
                 for row in exporter.items(manager):
-                    files.write(row, tenant_path / exporter.name(row))
+                    files.write(row, tenant_path / exporter.name(row, split))
 
 
 @cli.group()
