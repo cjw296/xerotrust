@@ -2,12 +2,15 @@ import json
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
-from typing import Callable, Any, IO, Self, TypeAlias, Iterable, Iterator
+from typing import Callable, Any, IO, Self, TypeAlias, Iterable, Iterator, ClassVar
 
 from xero.exceptions import XeroRateLimitExceeded
+
+from xerotrust.transform import DateTimeEncoder
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
 
@@ -39,14 +42,14 @@ class FileManager:
         self._open_files: "OrderedDict[Path, IO[str]]" = OrderedDict()
         self._seen_paths: set[Path] = set()
 
-    def write(self, item: dict[str, Any], path: Path) -> None:
+    def write(self, item: dict[str, Any], path: Path, append: bool = False) -> None:
         if path not in self._open_files:
             logging.info(f'opening {path}')
             if len(self._open_files) >= self.max_open_files:
                 oldest_path, oldest_file = self._open_files.popitem(last=False)
                 oldest_file.close()
             path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-            mode = 'w' if path not in self._seen_paths else 'a'
+            mode = 'a' if append or path in self._seen_paths else 'w'
             self._open_files[path] = path.open(mode, encoding='utf-8')
         else:
             self._open_files.move_to_end(path)
@@ -88,21 +91,25 @@ def retry_on_rate_limit[T, **P](
 
 @dataclass
 class Export:
+    latest_fields: ClassVar[tuple[str, ...]] = ('UpdatedDateUTC',)
+    supports_update: ClassVar[bool] = False
+
     file_name: str | None = None
-    latest_fields: tuple[str] = ('UpdatedDateUTC',)
-    latest: dict[str, int | str] | None = None
+    latest: dict[str, int | datetime] | None = None
 
     def name(self, item: dict[str, Any], split: Split) -> str:
         assert self.file_name is not None
         return self.file_name
 
     def _raw_items(
-        self, manager: Any, latest: dict[str, int | str] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
         return manager.all()  # type: ignore[no-any-return]
 
-    def items(self, manager: Any, latest: dict[str, int | str] | None) -> Iterable[dict[str, Any]]:
-        self.latest = None  # make sure we start each iteration with empty latest
+    def items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        self.latest = latest
         for item in self._raw_items(manager, latest):
             if self.latest is None:
                 self.latest = {f: item[f] for f in self.latest_fields}
@@ -115,17 +122,38 @@ class Export:
 
 @dataclass
 class JournalsExport(Export):
-    latest_fields: tuple[str] = ('JournalDate', 'JournalNumber')
+    latest_fields: ClassVar[tuple[str, ...]] = ('JournalDate', 'JournalNumber')
+    supports_update: ClassVar[bool] = True
 
     def name(self, item: dict[str, Any], split: Split) -> str:
         pattern = f'journals{SplitSuffix[split]}.jsonl'
         return item['JournalDate'].strftime(pattern)  # type: ignore[no-any-return]
 
-    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
-        offset = 0
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        offset = 0 if latest is None else latest.get('JournalNumber', 0)
         while entries := retry_on_rate_limit(manager.filter, offset=offset):
             yield from entries
             offset = entries[-1]['JournalNumber']
+
+
+class LatestData(dict[str, dict[str, datetime | int] | None]):
+    @classmethod
+    def load(cls, path: Path) -> Self:
+        instance = cls()
+        if path.exists():
+            for endpoint, data in json.loads(path.read_text()).items():
+                for key in data:
+                    if 'Date' in key:
+                        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime
+                        # in utc:
+                        data[key] = datetime.fromisoformat(data[key]).replace(tzinfo=None)
+                instance[endpoint] = data
+        return instance
+
+    def save(self, path: Path) -> None:
+        path.write_text(json.dumps(self, cls=DateTimeEncoder, indent=2))
 
 
 EXPORTS = {
