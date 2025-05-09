@@ -2,12 +2,15 @@ import json
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
 from typing import Callable, Any, IO, Self, TypeAlias, Iterable, Iterator
 
 from xero.exceptions import XeroRateLimitExceeded
+
+from xerotrust.transform import DateTimeEncoder
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
 
@@ -89,31 +92,71 @@ def retry_on_rate_limit[T, **P](
 @dataclass
 class Export:
     file_name: str | None = None
+    latest_fields: tuple[str, ...] = ('UpdatedDateUTC',)
+    latest: dict[str, int | datetime] | None = None
 
     def name(self, item: dict[str, Any], split: Split) -> str:
         assert self.file_name is not None
         return self.file_name
 
-    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
         return manager.all()  # type: ignore[no-any-return]
 
+    def items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        self.latest = latest
+        for item in self._raw_items(manager, latest):
+            if self.latest is None:
+                self.latest = {f: item[f] for f in self.latest_fields}
+            else:
+                for latest_field in self.latest_fields:
+                    latest_value = item[latest_field]
+                    self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+            yield item
 
+
+@dataclass
 class JournalsExport(Export):
+    latest_fields: tuple[str, ...] = ('JournalDate', 'JournalNumber')
+
     def name(self, item: dict[str, Any], split: Split) -> str:
         pattern = f'journals{SplitSuffix[split]}.jsonl'
         return item['JournalDate'].strftime(pattern)  # type: ignore[no-any-return]
 
-    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
-        offset = 0
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        offset = 0 if latest is None else latest.get('JournalNumber', 0)
         while entries := retry_on_rate_limit(manager.filter, offset=offset):
             yield from entries
             offset = entries[-1]['JournalNumber']
 
 
+class LatestData(dict[str, dict[str, datetime | int] | None]):
+    @classmethod
+    def load(cls, path: Path) -> Self:
+        instance = cls()
+        if path.exists():
+            for endpoint, data in json.loads(path.read_text()).items():
+                for key in data:
+                    if 'Date' in key:
+                        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime
+                        # in utc:
+                        data[key] = datetime.fromisoformat(data[key]).replace(tzinfo=None)
+                instance[endpoint] = data
+        return instance
+
+    def save(self, path: Path) -> None:
+        path.write_text(json.dumps(self, cls=DateTimeEncoder, indent=2))
+
+
 EXPORTS = {
     'Accounts': Export("accounts.jsonl"),
     'Contacts': Export("contacts.jsonl"),
-    'journals': JournalsExport(),
+    'Journals': JournalsExport(),
 }
 
 ALL_JOURNAL_KEYS = [
