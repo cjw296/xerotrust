@@ -113,7 +113,7 @@ class JournalsExport(Export):
 EXPORTS = {
     'Accounts': Export("accounts.jsonl"),
     'Contacts': Export("contacts.jsonl"),
-    'journals': JournalsExport(),
+    'Journals': JournalsExport(),
 }
 
 ALL_JOURNAL_KEYS = [
