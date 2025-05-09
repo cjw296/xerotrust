@@ -98,3 +98,13 @@ class TestFileManager:
                 'file2.jsonl': '{"data": 2}\n{"data": 4}\n',
             },
         )
+
+    def test_append_existing_files(self, tmp_path: Path, check_files: FileChecker) -> None:
+        (tmp_path / "file1.jsonl").write_text('THIS SHOULD REMAIN\n')
+        with FileManager(max_open_files=1, serializer=json.dumps) as fm:
+            fm.write({"data": 1}, tmp_path / f"file1.jsonl", append=True)
+        check_files(
+            {
+                'file1.jsonl': 'THIS SHOULD REMAIN\n{"data": 1}\n',
+            },
+        )
