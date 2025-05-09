@@ -12,8 +12,8 @@ from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
-from .export import EXPORTS, FileManager, Split, ALL_JOURNAL_KEYS, flatten
-from .transform import TRANSFORMERS, show
+from .export import EXPORTS, FileManager, Split, ALL_JOURNAL_KEYS, flatten, LatestData
+from .transform import TRANSFORMERS, show, DateTimeEncoder
 
 
 @click.group()
@@ -188,9 +188,20 @@ def explore(
     default=Split.MONTHS,
     help='How to split the exported files',
 )
+@click.option(
+    '--update',
+    is_flag=True,
+    default=False,
+    help='Update the existing export where possible, rather than re-exporting and overwriting',
+)
 @click.pass_obj
 def export(
-    auth_path: Path, tenant_ids: tuple[str], endpoints: tuple[str], path: Path, split: Split
+    auth_path: Path,
+    tenant_ids: tuple[str],
+    endpoints: tuple[str],
+    path: Path,
+    split: Split,
+    update: bool,
 ) -> None:
     """Export data from Xero API endpoints."""
     credentials = credentials_from_file(auth_path)
@@ -211,7 +222,7 @@ def export(
             credentials.tenant_id = tenant_id
 
             latest_path = tenant_path / "latest.json"
-            latest = {}
+            latest = LatestData.load(latest_path) if update else LatestData()
 
             for endpoint in endpoints:
                 manager = getattr(xero, endpoint.lower())
@@ -220,7 +231,7 @@ def export(
                     files.write(row, tenant_path / exporter.name(row, split))
                 latest[endpoint] = exporter.latest
 
-            latest_path.write_text(json.dumps(latest, cls=DateTimeEncoder, indent=2))
+            latest.save(latest_path)
 
 
 @cli.group()
