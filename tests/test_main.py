@@ -431,13 +431,31 @@ class TestExport:
             f"{XERO_API_URL}/Accounts",
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
-            response_json={'Status': 'OK', 'Accounts': [{'AccountID': 'a1', 'Name': 'Acc 1'}]},
+            response_json={
+                'Status': 'OK',
+                'Accounts': [
+                    {
+                        'AccountID': 'a1',
+                        'Name': 'Acc 1',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
         )
         pook.get(
             f"{XERO_API_URL}/Contacts",
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
-            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+            response_json={
+                'Status': 'OK',
+                'Contacts': [
+                    {
+                        'ContactID': 'c1',
+                        'Name': 'Cont 1',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
         )
         pook.get(
             f"{XERO_API_URL}/Journals",
@@ -453,9 +471,19 @@ class TestExport:
 
         check_files(
             {
-                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Acc 1"}\n',
-                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Acc 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Accounts": {
+                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      },
+                      "Contacts": {
+                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      },
+                      "Journals": null
+                    }"""),
             }
         )
 
@@ -473,23 +501,53 @@ class TestExport:
             f"{XERO_API_URL}/Contacts",
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
-            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c1', 'Name': 'Cont 1'}]},
+            response_json={
+                'Status': 'OK',
+                'Contacts': [
+                    {
+                        'ContactID': 'c1',
+                        'Name': 'Cont 1',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
         )
         pook.get(
             f"{XERO_API_URL}/Contacts",
             headers={'Xero-Tenant-Id': 't2'},
             reply=200,
-            response_json={'Status': 'OK', 'Contacts': [{'ContactID': 'c2', 'Name': 'Cont 2'}]},
+            response_json={
+                'Status': 'OK',
+                'Contacts': [
+                    {
+                        'ContactID': 'c2',
+                        'Name': 'Cont 2',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
         )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path), 'contacts')
 
         check_files(
             {
-                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1"}\n',
+                'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2"}\n',
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Contacts": {
+                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      }
+                    }"""),
+                'Tenant 2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 2/tenant.json': '{"tenantId": "t2", "tenantName": "Tenant 2"}\n',
+                'Tenant 2/latest.json': dedent("""\
+                    {
+                      "Contacts": {
+                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      }
+                    }"""),
             },
         )
 
@@ -535,6 +593,13 @@ class TestExport:
                     '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
                     '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
                 ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Journals": {
+                        "JournalDate": "2023-03-16T00:00:00+00:00",
+                        "JournalNumber": 2
+                      }
+                    }"""),
             }
         )
 
@@ -598,6 +663,13 @@ class TestExport:
                 'Tenant 1/journals-2023-04.jsonl': (
                     '{"JournalID": "j1", "JournalDate": "2023-04-20T00:00:00+00:00", "JournalNumber": 1}\n'
                 ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Journals": {
+                        "JournalDate": "2023-04-20T00:00:00+00:00",
+                        "JournalNumber": 1
+                      }
+                    }"""),
             }
         )
 
@@ -664,6 +736,13 @@ class TestExport:
                 'Tenant 1/journals-2024-03-15.jsonl': (
                     '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
                 ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Journals": {
+                        "JournalDate": "2024-03-15T00:00:00+00:00",
+                        "JournalNumber": 3
+                      }
+                    }"""),
             }
         )
 
@@ -695,6 +774,13 @@ class TestExport:
                 'Tenant 1/journals-2024-03.jsonl': (
                     '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
                 ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Journals": {
+                        "JournalDate": "2024-03-15T00:00:00+00:00",
+                        "JournalNumber": 3
+                      }
+                    }"""),
             }
         )
 
@@ -726,6 +812,15 @@ class TestExport:
                 'Tenant 1/journals-2024.jsonl': (
                     '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
                 ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "Journals": {
+                        "JournalDate": "2024-03-15T00:00:00+00:00",
+                        "JournalNumber": 3
+                      }
+                    }"""),
+            }
+        )
             }
         )
 
