@@ -89,16 +89,34 @@ def retry_on_rate_limit[T, **P](
 @dataclass
 class Export:
     file_name: str | None = None
+    latest_fields: tuple[str] = ('UpdatedDateUTC',)
+    latest: dict[str, int | str] | None = None
 
     def name(self, item: dict[str, Any], split: Split) -> str:
         assert self.file_name is not None
         return self.file_name
 
-    def items(self, manager: Any) -> Iterable[dict[str, Any]]:
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | str] | None
+    ) -> Iterable[dict[str, Any]]:
         return manager.all()  # type: ignore[no-any-return]
 
+    def items(self, manager: Any, latest: dict[str, int | str] | None) -> Iterable[dict[str, Any]]:
+        self.latest = None  # make sure we start each iteration with empty latest
+        for item in self._raw_items(manager, latest):
+            if self.latest is None:
+                self.latest = {f: item[f] for f in self.latest_fields}
+            else:
+                for latest_field in self.latest_fields:
+                    latest_value = item[latest_field]
+                    self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+            yield item
 
+
+@dataclass
 class JournalsExport(Export):
+    latest_fields: tuple[str] = ('JournalDate', 'JournalNumber')
+
     def name(self, item: dict[str, Any], split: Split) -> str:
         pattern = f'journals{SplitSuffix[split]}.jsonl'
         return item['JournalDate'].strftime(pattern)  # type: ignore[no-any-return]

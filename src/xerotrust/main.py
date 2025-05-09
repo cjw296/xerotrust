@@ -209,11 +209,18 @@ def export(
             tenant_path = path / tenant_data["tenantName"]
             files.write(tenant_data, tenant_path / "tenant.json")
             credentials.tenant_id = tenant_id
+
+            latest_path = tenant_path / "latest.json"
+            latest = {}
+
             for endpoint in endpoints:
                 manager = getattr(xero, endpoint.lower())
                 exporter = EXPORTS[endpoint]
-                for row in exporter.items(manager):
+                for row in exporter.items(manager, latest=latest.get(endpoint)):
                     files.write(row, tenant_path / exporter.name(row, split))
+                latest[endpoint] = exporter.latest
+
+            latest_path.write_text(json.dumps(latest, cls=DateTimeEncoder, indent=2))
 
 
 @cli.group()
