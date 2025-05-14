@@ -1,19 +1,19 @@
 import csv
 import json
 import logging
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 import click
+import enlighten
 from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
 from .export import EXPORTS, FileManager, Split, ALL_JOURNAL_KEYS, flatten, LatestData
-from .transform import TRANSFORMERS, show, DateTimeEncoder
+from .transform import TRANSFORMERS, show
 
 
 @click.group()
@@ -217,23 +217,30 @@ def export(
     with FileManager(serializer=TRANSFORMERS['json']) as files:
         for tenant_id in tenant_ids:
             tenant_data = all_tenant_data[tenant_id]
-            tenant_path = path / tenant_data["tenantName"]
+            tenant_name = tenant_data["tenantName"]
+            tenant_path = path / tenant_name
             files.write(tenant_data, tenant_path / "tenant.json")
             credentials.tenant_id = tenant_id
 
             latest_path = tenant_path / "latest.json"
             latest = LatestData.load(latest_path) if update else LatestData()
 
+            counter_manager = enlighten.get_manager()
             for endpoint in endpoints:
                 manager = getattr(xero, endpoint.lower())
                 exporter = EXPORTS[endpoint]
-                for row in exporter.items(manager, latest=latest.get(endpoint)):
+                counter = counter_manager.counter(
+                    desc=f'{tenant_name}: {endpoint}',
+                    unit='items exported',
+                )
+                for row in counter(exporter.items(manager, latest=latest.get(endpoint))):
                     files.write(
                         row,
                         tenant_path / exporter.name(row, split),
                         append=update and exporter.supports_update,
                     )
                 latest[endpoint] = exporter.latest
+                counter.refresh()
 
             latest.save(latest_path)
 

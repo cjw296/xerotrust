@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.1.8",
+    "enlighten>=1.14.1",
     "fastapi>=0.115.12",
     "hypercorn>=0.17.3",
     "jinja2>=3.1.6",
@@ -55,6 +56,7 @@ module = [
     "requests_oauthlib",
     "testfixtures.*",
     "xero.*",
+    "enlighten.*",
 ]
 ignore_missing_imports = true
 
