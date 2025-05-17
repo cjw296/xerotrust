@@ -1,7 +1,7 @@
 [project]
 name = "xerotrust"
-version = "0.1.0"
-description = "Backups and data dumps for Xero accounts."
+version = "0.2.0"
+description = "Export and explore data from Xero accounts."
 readme = "README.rst"
 authors = [
     { name = "Chris Withers", email = "chris@withers.org" }
