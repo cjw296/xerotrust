@@ -12,3 +12,4 @@ wheels/
 !.git*
 /*.json
 /*.jsonl
+uv.lock
