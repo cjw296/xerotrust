@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "click>=8.1.8",
+    "click>=8.2",
     "enlighten>=1.14.1",
     "fastapi>=0.115.12",
     "hypercorn>=0.17.3",

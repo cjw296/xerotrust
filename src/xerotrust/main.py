@@ -184,7 +184,7 @@ def explore(
 )
 @click.option(
     '--split',
-    type=click.Choice(Split, case_sensitive=False),  # type: ignore[arg-type]  # needs Click 8.2
+    type=click.Choice(Split, case_sensitive=False),
     default=Split.MONTHS,
     help='How to split the exported files',
 )
