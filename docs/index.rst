@@ -13,23 +13,57 @@ Quickstart
 
        uv tool install -U xerotrust
 
-3. Authenticate
+3. Set up the App in Xero Developer:
 
-4. Export
+   - Go to Xero's `App Management page`__.
 
-5. Flatten.
+     __ https://developer.xero.com/app/manage/
 
+   - Click the `New app` button and fill in the form as follows:
 
+     `App name`
+       ``zerotrust`` - Xero won't allow apps with "xero" in their name!
 
-If you're looking to get started with Xerotrust and understand how to authenticate with Xero, read the :doc:`usage` documentation.
+     `Integration type`
+       Select "**Mobile or desktop app** - Auth code with PKCE.
+       For native apps that can’t securely store a client secret".
 
-If you want to export data from your Xero account for backup or analysis, check out the :doc:`export` documentation.
+     `Company or application URL`
+       ``https://xerotrust.readthedocs.io/``
 
-If you need to verify the integrity of your journal exports, see the :doc:`checks` documentation.
+     `Redirect URI`
+       ``http://localhost:12010/``
 
-For details on how the authentication process works and how to troubleshoot authentication issues, refer to :doc:`authentication`.
+     Check the `terms and conditions` box and then click the `Create app` buttons.
 
-If you're a developer looking to contribute to Xerotrust, see the :doc:`development` documentation.
+3. Authenticate and allow access by running:
+
+   .. code-block:: bash
+
+       xerotrust login
+
+   For `Client ID`, navigate to the application you set up above in Xero's `App Management page`__,
+   then click on the `Configuration` tab and finally click the `Copy` button in the `Client id`
+   section.
+
+   __ https://developer.xero.com/app/manage/
+
+   Once you submit the `Client ID`, a web browser will pop up for you to allow access
+   for `xerotrust`.
+
+4. Export your Xero data to the current directory:
+
+   .. code-block:: bash
+
+       uv run xerotrust export
+
+5. Flatten all your journals to a single ``.csv``:
+
+   .. code-block:: bash
+
+       uv run xerotrust journals flatten */journals-*.jsonl -o journals.csv
+
+Full documentation is provided here:
 
 .. toctree::
    :maxdepth: 2
