@@ -27,9 +27,7 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Docstrings with clear parameter descriptions
 - Automated formatting with ruff
 
-
 ## Git commits
 - Keep commit messages succinct, do not use any emojis
 - Do not add prefixes such as "feat:", "chore:", "test:", "fix:", etc.
 - Capitalize the first letter of any commit message
-

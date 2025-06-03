@@ -1,27 +1,17 @@
 Development
 ===========
 
-.. highlight:: bash
+If you wish to contribute to this project, then you should fork the repository found here:
 
-This document provides guidance for developers who want to contribute to Xerotrust.
+https://github.com/cjw296/xerotrust.git
 
-Setting Up a Development Environment
-------------------------------------
-
-Clone the Repository
-^^^^^^^^^^^^^^^^^^^^
-
-First, clone the repository from GitHub:
-
-.. code-block:: bash
-
-    git clone https://github.com/cjw296/xerotrust.git
-    cd xerotrust
+Once that has been done and you have a checkout, you can follow these instructions to perform
+various development tasks:
 
 Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^
 
-Xerotrust uses ``uv`` for dependency management. To set up a development environment:
+``uv`` is used for dependency management. To set up a development environment:
 
 .. code-block:: bash
 
