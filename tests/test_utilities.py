@@ -1,10 +1,9 @@
 """Tests for utility functions and classes."""
 
 import json
-from datetime import date
 from pathlib import Path
 
-from testfixtures import ShouldAssert, ShouldRaise, compare
+from testfixtures import ShouldRaise, compare
 
 from xerotrust.check import minimal_repr
 from xerotrust.export import FileManager
@@ -24,8 +23,8 @@ def test_minimal_repr() -> None:
 
 
 def test_json_with_unsupported_type() -> None:
-    with ShouldAssert("Unexpected type: <class 'datetime.date'>, datetime.date(2021, 1, 1)"):
-        TRANSFORMERS['json'](date(2021, 1, 1))
+    with ShouldRaise(TypeError("Unexpected type: <class 'type'>, <class 'object'>")):
+        TRANSFORMERS['json'](object)
 
 
 class TestFileManager:

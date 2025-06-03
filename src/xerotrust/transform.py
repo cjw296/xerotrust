@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, date
 from functools import partial
 from pprint import pformat
 from typing import Any, Callable, TypeAlias, Sequence, Iterable
@@ -9,8 +9,11 @@ Transformer: TypeAlias = Callable[[Any], Any]
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
-        assert isinstance(obj, datetime), f'Unexpected type: {type(obj)}, {obj!r}'
-        return obj.astimezone(timezone.utc).isoformat()
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, date):
+            return obj.isoformat() + 'T00:00:00'
+        raise TypeError(f'Unexpected type: {type(obj)}, {obj!r}')
 
 
 def itemgetter(key: str, default: Any = None) -> Callable[[dict[str, Any]], Any]:
