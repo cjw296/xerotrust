@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
-from typing import Callable, Any, IO, Self, TypeAlias, Iterable, Iterator, ClassVar
+from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar
 
 from xero.exceptions import XeroRateLimitExceeded
 
@@ -159,37 +159,3 @@ EXPORTS = {
     'Contacts': Export("contacts.jsonl"),
     'Journals': JournalsExport(),
 }
-
-ALL_JOURNAL_KEYS = [
-    'JournalID',
-    'JournalDate',
-    'JournalNumber',
-    'CreatedDateUTC',
-    'JournalLineID',
-    'AccountID',
-    'AccountCode',
-    'AccountType',
-    'AccountName',
-    'Description',
-    'NetAmount',
-    'GrossAmount',
-    'TaxAmount',
-    'TaxType',
-    'TaxName',
-    'TrackingCategories',
-    'Reference',
-    'SourceType',
-    'SourceID',
-]
-
-
-def flatten(rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
-    for journal in rows:
-        journal_lines = journal.pop('JournalLines', [])
-        for journal_line in journal_lines:
-            full_journal_row = journal.copy()
-            for key, value in journal_line.items():
-                if isinstance(value, (dict, list)):
-                    value = json.dumps(value)
-                full_journal_row[key] = value
-            yield full_journal_row

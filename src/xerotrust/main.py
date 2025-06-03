@@ -12,7 +12,8 @@ from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
-from .export import EXPORTS, FileManager, Split, ALL_JOURNAL_KEYS, flatten, LatestData
+from .export import EXPORTS, FileManager, Split, LatestData
+from .flatten import flatten, ALL_JOURNAL_KEYS
 from .transform import TRANSFORMERS, show
 
 
@@ -279,7 +280,7 @@ def check_command(paths: tuple[Path, ...]) -> None:
     )
 
 
-@journals.command('flatten')
+@cli.command('flatten')
 @click.argument(
     'paths',
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
@@ -296,10 +297,10 @@ def check_command(paths: tuple[Path, ...]) -> None:
 )
 def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) -> None:
     """
-    Flatten journal entries from JSONL files into CSV format.
+    Flatten journal entries, augmenting them with transaction data if requested, into CSV format.
 
-    Each JournalLine within a Journal becomes a row in the CSV,
-    combined with data from its parent Journal.
+    Each JournalLine within a Journal becomes a row in the CSV, combined with data from its parent
+    Journal and any supplied transactions.
     """
     # The type hint for output_file from click.File('w') is IO[str],
     # but click.utils.LazyFile is what's actually passed at runtime before it's opened.
