@@ -24,6 +24,7 @@ XERO_API_URL = "https://api.xero.com/api.xro/2.0"
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 XERO_CONTACTS_URL = f"{XERO_API_URL}/Contacts"
 XERO_JOURNALS_URL = f"{XERO_API_URL}/Journals"
+XERO_BANK_TRANSACTIONS_URL = f"{XERO_API_URL}/BankTransactions"
 
 
 def run_cli(
@@ -517,13 +518,36 @@ class TestExplore:
             },
         )
         result = run_cli(tmp_path, 'explore', 'contacts', '-t', 'json')
-        # Our XeroEncoder should serialize date/datetime back to ISO format
+        # Our XeroEncoder should serialize datetime back to ISO format
         compare(
             result.output,
             expected=(
                 '{"ContactID": "c1", "Name": "Contact 1", '
                 '"CreatedDateUTC": "2023-03-15T13:20:00+00:00"}\n'
             ),
+        )
+
+    def test_explore_with_date_in_json(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        add_tenants_response(pook)
+        pook.get(
+            XERO_BANK_TRANSACTIONS_URL,
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        "DateString": "2021-12-08T00:00:00",
+                    },
+                ],
+            },
+        )
+        result = run_cli(tmp_path, 'explore', 'banktransactions', '-t', 'json')
+        # Our XeroEncoder should serialize date back to ISO format
+        compare(
+            result.output,
+            expected='{"DateString": "2021-12-08T00:00:00"}\n',
         )
 
 
