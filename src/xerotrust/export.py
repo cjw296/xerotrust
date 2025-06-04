@@ -138,6 +138,16 @@ class JournalsExport(Export):
             offset = entries[-1]['JournalNumber']
 
 
+@dataclass
+class BankTransactionsExport(Export):
+    latest_fields: ClassVar[tuple[str, ...]] = ('UpdatedDateUTC',)
+    supports_update: ClassVar[bool] = False
+
+    def name(self, item: dict[str, Any], split: Split) -> str:
+        pattern = f'transactions{SplitSuffix[split]}.jsonl'
+        return item['Date'].strftime(pattern)  # type: ignore[no-any-return]
+
+
 class LatestData(dict[str, dict[str, datetime | int] | None]):
     @classmethod
     def load(cls, path: Path) -> Self:
@@ -158,4 +168,5 @@ EXPORTS = {
     'Accounts': Export("accounts.jsonl"),
     'Contacts': Export("contacts.jsonl"),
     'Journals': JournalsExport(),
+    'BankTransactions': BankTransactionsExport(),
 }
