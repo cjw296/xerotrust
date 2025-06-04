@@ -138,7 +138,7 @@ class TestLogin:
     def test_login_with_expires_in(
         self, mock_authenticate: Mock, tmp_path: Path, pook: Any
     ) -> None:
-        """Test the login command calculates expired_at from expires_in."""
+        """Test the login command calculates expires_at from expires_in."""
         auth_path = tmp_path / '.xerotrust.json'
         add_tenants_response(pook)
 
@@ -161,6 +161,26 @@ class TestLogin:
                 },
             },
             actual=json.loads(auth_path.read_text()),
+        )
+
+    def test_login_preserves_expires_at(
+        self, mock_authenticate: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        expires_at = 1234.0
+        auth_path = tmp_path / '.xerotrust.json'
+        add_tenants_response(pook)
+
+        mock_authenticate.return_value.token = {
+            'access_token': 'test_token',
+            'expires_in': 3600,
+            'expires_at': expires_at,
+        }
+
+        run_cli(auth_path, 'login', '--client-id', 'ID')
+
+        compare(
+            json.loads(auth_path.read_text())['token']['expires_at'],
+            expected=expires_at,
         )
 
 

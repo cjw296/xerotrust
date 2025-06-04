@@ -54,7 +54,7 @@ def login(auth_path: Path, client_id: str) -> None:
 
     now = time.time()
     credentials = authenticate(client_id)
-    if 'expires_in' in credentials.token and 'expired_at' not in credentials.token:
+    if 'expires_in' in credentials.token and 'expires_at' not in credentials.token:
         credentials.token['expires_at'] = now + credentials.token['expires_in']
 
     # Display tenants
