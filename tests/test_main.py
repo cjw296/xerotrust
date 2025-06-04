@@ -391,6 +391,32 @@ class TestExplore:
             """),
         )
 
+    def test_explore_pretty_with_newline(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        add_tenants_response(pook)
+        pook.get(
+            XERO_CONTACTS_URL,
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Contacts': [
+                    {'ContactID': 'c1', 'Name': 'Contact 1'},
+                    {'ContactID': 'c2', 'Name': 'Contact 2'},
+                ],
+            },
+        )
+        result = run_cli(tmp_path, 'explore', 'contacts', '-t', 'pretty', '-n')
+        compare(
+            result.output,
+            expected=dedent(
+                """\
+                {'ContactID': 'c1', 'Name': 'Contact 1'}
+                {'ContactID': 'c2', 'Name': 'Contact 2'}
+                """
+            ),
+        )
+
     def test_explore_with_date_and_datetime_in_json(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
