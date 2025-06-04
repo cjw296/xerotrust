@@ -596,6 +596,22 @@ class TestExport:
                 'Journals': [],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt1',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 100.0,
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -603,6 +619,7 @@ class TestExport:
             {
                 'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Acc 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/transactions-2023-01.jsonl': '{"BankTransactionID": "bt1", "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "Total": 100.0}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': dedent("""\
                     {
@@ -612,7 +629,10 @@ class TestExport:
                       "Contacts": {
                         "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
                       },
-                      "Journals": null
+                      "Journals": null,
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      }
                     }"""),
             }
         )
@@ -1246,6 +1266,181 @@ class TestExport:
                       },
                       "Contacts": {
                         "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def setup_bank_transactions_mocks(self, pook: Any, tenant_id: str = 't1') -> None:
+        """Helper to set up common pook mocks for bank transaction exports."""
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': tenant_id},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt1',
+                        'Date': '/Date(1678838400000+0000)/',  # 2023-03-15
+                        'UpdatedDateUTC': '/Date(1678838400000+0000)/',
+                        'Total': 100.0,
+                        'Type': 'SPEND',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                    {
+                        'BankTransactionID': 'bt2',
+                        'Date': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        'UpdatedDateUTC': '/Date(1678924800000+0000)/',
+                        'Total': 200.0,
+                        'Type': 'RECEIVE',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                    {
+                        'BankTransactionID': 'bt3',
+                        'Date': '/Date(1710460800000+0000)/',  # 2024-03-15
+                        'UpdatedDateUTC': '/Date(1710460800000+0000)/',
+                        'Total': 300.0,
+                        'Type': 'SPEND',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                ],
+            },
+        )
+
+    def test_bank_transactions_uses_bank_transactions_export(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_bank_transactions_mocks(pook)
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'banktransactions')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/transactions-2024-03.jsonl': (
+                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def test_bank_transactions_split_days(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_bank_transactions_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'banktransactions',
+            '--split',
+            'days',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03-15.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/transactions-2023-03-16.jsonl': (
+                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/transactions-2024-03-15.jsonl': (
+                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def test_bank_transactions_split_months(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_bank_transactions_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'banktransactions',
+            '--split',
+            'months',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/transactions-2024-03.jsonl': (
+                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def test_bank_transactions_split_none(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+        self.setup_bank_transactions_mocks(pook)
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'banktransactions',
+            '--split',
+            'none',
+        )
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
+                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': dedent("""\
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
                       }
                     }"""),
             }
