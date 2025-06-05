@@ -369,6 +369,66 @@ class TestExplore:
         result = run_cli(tmp_path, 'explore', 'Journals', '--offset', '100')
         compare(result.output, expected='{"JournalID": "j101", "JournalNumber": 101}\n')
 
+    def test_explore_with_page(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        add_tenants_response(pook)
+        pook.get(
+            XERO_CONTACTS_URL,
+            params={'page': '2'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Contacts': [{'ContactID': 'c201', 'Name': 'Contact 201'}],
+            },
+        )
+        result = run_cli(tmp_path, 'explore', 'contacts', '--page', '2')
+        compare(result.output, expected='{"ContactID": "c201", "Name": "Contact 201"}\n')
+
+    def test_explore_with_page_size(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        add_tenants_response(pook)
+        pook.get(
+            XERO_CONTACTS_URL,
+            params={'pageSize': '5'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Contacts': [{'ContactID': 'c1', 'Name': 'Contact 1'}],
+            },
+        )
+        result = run_cli(tmp_path, 'explore', 'contacts', '--page-size', '5')
+        compare(
+            result.output,
+            expected=dedent("""\
+                {"ContactID": "c1", "Name": "Contact 1"}
+            """),
+        )
+
+    def test_explore_with_page_and_page_size(
+        self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
+    ) -> None:
+        add_tenants_response(pook)
+        pook.get(
+            XERO_CONTACTS_URL,
+            params={'page': '3', 'pageSize': '2'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Contacts': [
+                    {'ContactID': 'c5', 'Name': 'Contact 5'},
+                ],
+            },
+        )
+        result = run_cli(tmp_path, 'explore', 'contacts', '--page', '3', '--page-size', '2')
+        compare(
+            result.output,
+            expected=dedent("""\
+                {"ContactID": "c5", "Name": "Contact 5"}
+            """),
+        )
+
     def test_explore_with_field(
         self, mock_credentials_from_file: Mock, tmp_path: Path, pook: Any
     ) -> None:
