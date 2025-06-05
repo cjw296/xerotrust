@@ -15,13 +15,6 @@ from xerotrust.transform import DateTimeEncoder
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
 
 
-def normalize_datetime(dt: datetime) -> datetime:
-    """Normalize datetime to be timezone-aware in UTC for consistent comparisons."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
 class Split(StrEnum):
     NONE = 'none'
     YEARS = 'years'
@@ -123,8 +116,6 @@ class Export:
             else:
                 for latest_field in self.latest_fields:
                     latest_value = item[latest_field]
-                    if isinstance(latest_value, datetime):
-                        latest_value = normalize_datetime(latest_value)
                     self.latest[latest_field] = max(latest_value, self.latest[latest_field])
             yield item
 
@@ -155,9 +146,7 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
             for endpoint, data in json.loads(path.read_text()).items():
                 for key in data:
                     if 'Date' in key:
-                        # Normalize to timezone-aware datetime in UTC for consistent comparisons
-                        dt = datetime.fromisoformat(data[key])
-                        data[key] = normalize_datetime(dt)
+                        data[key] = datetime.fromisoformat(data[key])
                 instance[endpoint] = data
         return instance
 

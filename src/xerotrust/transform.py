@@ -10,10 +10,6 @@ Transformer: TypeAlias = Callable[[Any], Any]
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
         assert isinstance(obj, datetime), f'Unexpected type: {type(obj)}, {obj!r}'
-        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime in utc,
-        # but if we do get a datetime with tzinfo set, leave it be and just turn it into utc
-        if obj.tzinfo is None:
-            obj = obj.replace(tzinfo=timezone.utc)
         return obj.astimezone(timezone.utc).isoformat()
 
 
