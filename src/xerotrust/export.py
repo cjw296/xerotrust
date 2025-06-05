@@ -2,7 +2,7 @@ import json
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
@@ -146,9 +146,7 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
             for endpoint, data in json.loads(path.read_text()).items():
                 for key in data:
                     if 'Date' in key:
-                        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime
-                        # in utc:
-                        data[key] = datetime.fromisoformat(data[key]).replace(tzinfo=None)
+                        data[key] = datetime.fromisoformat(data[key])
                 instance[endpoint] = data
         return instance
 
