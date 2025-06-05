@@ -3,39 +3,51 @@ Data Export
 
 Xerotrust provides functionality to export data from your Xero account for backup, analysis, or compliance purposes.
 
-Overview
---------
+Exporting Your Data
+-------------------
 
-The export functionality allows you to:
+There are two main scenarios for exporting data from Xero:
 
-* Export data from multiple Xero endpoints
-* Export from one or more tenants (organizations)
-* Save data in JSON format for easy processing
-* Handle rate limiting automatically
-* Maintain a clean file structure by tenant and data type
-* Display progress during exports
-* Perform incremental updates to existing exports
+1. **Creating a fresh export** - Starting a new backup or data collection
+2. **Updating an existing export** - Adding new data to previous exports
 
-Export Command
---------------
-
-To export data from Xero, use the ``export`` command:
+For the best experience with either scenario, create a dedicated directory for your exports and run xerotrust from within that directory:
 
 .. code-block:: bash
 
-    xerotrust export [OPTIONS] [ENDPOINTS]...
+    mkdir ~/xero-backups
+    cd ~/xero-backups
+    xerotrust export
 
-Arguments:
+Fresh Export
+^^^^^^^^^^^^
 
-* ``ENDPOINTS`` - One or more endpoints to export from (e.g., Accounts, Contacts, Journals)
-  If no endpoints are specified, all available endpoints will be exported.
+When starting fresh, simply run the export command in an empty directory:
 
-Options:
+.. code-block:: bash
 
-* ``-t, --tenant TEXT`` - Tenant ID(s) to export (defaults to all tenants)
-* ``--path DIRECTORY`` - Directory to export data to (default: current directory)
-* ``--update`` - Update existing exports instead of starting from scratch
-* ``--split [none|years|months|days]`` - Split journal exports by time period (default: months)
+    # Export all data from all tenants
+    xerotrust export
+    
+    # Export specific endpoints only
+    xerotrust export Journals Contacts
+    
+    # Export from a specific tenant
+    xerotrust export --tenant YOUR_TENANT_ID
+
+This will create a clean directory structure organized by tenant name, with all your Xero data saved in JSONL format.
+
+Updating an Existing Export
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To add new data to an existing export without re-downloading everything:
+
+.. code-block:: bash
+
+    cd ~/xero-backups  # Navigate to your existing export directory
+    xerotrust export --update
+
+The ``--update`` option intelligently determines what new data is available and only downloads what's changed since your last export. This is much faster for regular backups.
 
 Supported Endpoints
 -------------------
@@ -77,62 +89,6 @@ All exports are saved in either JSON or JSONL (JSON Lines) format:
 
 For journal entries, the files are organized by time period according to the ``--split`` option.
 
-Journal Export Details
-----------------------
-
-Journal entries are exported with a specialized export strategy that:
-
-1. Handles Xero's pagination requirements
-2. Organizes journal entries by time period (days, months, years, or no splitting)
-3. Automatically retries on rate limit errors
-4. Maintains all journal metadata for verification
-5. Shows progress during export
-
-Example:
-
-.. code-block:: bash
-
-    xerotrust export Journals --path ~/xero-backups
-
-This will export all journal entries from all tenants, organizing them by month.
-
-Progress Bars
---------------
-
-When exporting data, Xerotrust displays progress bars showing:
-
-* The current tenant and export type being processed
-* Number of items downloaded
-* File size
-* Network bandwidth
-* Estimated time remaining
-
-This provides visibility into the export process, especially for large exports that may take some time to complete.
-
-Incremental Updates
---------------------
-
-You can update an existing export instead of downloading all data again:
-
-.. code-block:: bash
-
-    xerotrust export --update
-
-This option uses a ``latest.json`` file in each tenant directory to track what data has already been exported and only fetches new or updated data. With this option:
-
-* For journals, only new journal entries will be appended to existing files
-* For other data types, files will be refreshed with the latest data
-* Progress is tracked through the ``latest.json`` file, which records the most recent data seen for each export type
-
-The ``latest.json`` file contains timestamps for each export type:
-
-.. code-block:: json
-
-    {
-      "Accounts": "2023-05-15T08:30:45Z",
-      "Contacts": "2023-05-15T08:31:12Z",
-      "Journals": "2023-05-15T08:35:02Z"
-    }
 
 Splitting Journal Exports
 --------------------------
@@ -186,53 +142,3 @@ The exported data can be used for:
 
 Journal files can be validated using the ``journals check`` command (see :doc:`checks` for details).
 
-Technical Implementation
-------------------------
-
-File Management
-^^^^^^^^^^^^^^^
-
-The ``FileManager`` class handles writing data to files efficiently:
-
-- Keeps a pool of open files for performance
-- Limits the number of simultaneously open files
-- Ensures parent directories exist
-- Handles file modes (write/append) automatically
-
-.. code-block:: python
-
-    with FileManager(serializer=TRANSFORMERS['json']) as files:
-        files.write(data, path / filename)
-
-Rate Limiting
-^^^^^^^^^^^^^
-
-The export system automatically handles Xero API rate limits:
-
-- Catches ``XeroRateLimitExceeded`` exceptions
-- Respects the ``retry-after`` header
-- Automatically retries requests after waiting the specified period
-
-.. code-block:: python
-
-    def retry_on_rate_limit(manager_method, *args, **kwargs):
-        while True:
-            try:
-                return manager_method(*args, **kwargs)
-            except XeroRateLimitExceeded as e:
-                seconds = int(e.response.headers['retry-after'])
-                logging.warning(f'Rate limit exceeded, waiting {seconds} seconds')
-                sleep(seconds)
-
-Customizing Exports
--------------------
-
-Each export type is defined by an ``Export`` class that specifies:
-
-1. How to name the output files
-2. How to retrieve items from the Xero API
-
-To add a new export type, create a subclass of ``Export`` that implements:
-
-- ``name(item)`` - Returns the filename for an item
-- ``items(manager)`` - Returns an iterable of items from the API
