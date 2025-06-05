@@ -2,7 +2,7 @@ import json
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
@@ -13,6 +13,13 @@ from xero.exceptions import XeroRateLimitExceeded
 from xerotrust.transform import DateTimeEncoder
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
+
+
+def normalize_datetime(dt: datetime) -> datetime:
+    """Normalize datetime to be timezone-aware in UTC for consistent comparisons."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 class Split(StrEnum):
@@ -116,7 +123,16 @@ class Export:
             else:
                 for latest_field in self.latest_fields:
                     latest_value = item[latest_field]
-                    self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+                    if isinstance(latest_value, datetime):
+                        latest_value = normalize_datetime(latest_value)
+                        existing_value = self.latest[latest_field]
+                        if isinstance(existing_value, datetime):
+                            existing_value = normalize_datetime(existing_value)
+                            self.latest[latest_field] = max(latest_value, existing_value)
+                        else:
+                            self.latest[latest_field] = latest_value
+                    else:
+                        self.latest[latest_field] = max(latest_value, self.latest[latest_field])
             yield item
 
 
@@ -146,9 +162,9 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
             for endpoint, data in json.loads(path.read_text()).items():
                 for key in data:
                     if 'Date' in key:
-                        # looking at pyxero.utils.parse_date suggests we'll have a naive datetime
-                        # in utc:
-                        data[key] = datetime.fromisoformat(data[key]).replace(tzinfo=None)
+                        # Normalize to timezone-aware datetime in UTC for consistent comparisons
+                        dt = datetime.fromisoformat(data[key])
+                        data[key] = normalize_datetime(dt)
                 instance[endpoint] = data
         return instance
 
