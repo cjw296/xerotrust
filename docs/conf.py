@@ -6,7 +6,10 @@ extensions = [
 ]
 
 intersphinx_mapping = {
-    'python': ('http://docs.python.org', None),
+    'python': ('https://docs.python.org/3', None),
+    'starlette': ('https://www.starlette.io', None),
+    'fastapi': ('https://fastapi.tiangolo.com', None),
+    'typing': ('https://typing.readthedocs.io/en/latest/', None),
 }
 
 project = 'xerotrust'
@@ -22,4 +25,14 @@ autodoc_member_order = 'bysource'
 html_theme = 'furo'
 
 nitpicky = True
-nitpick_ignore: list[tuple[str, str]] = []
+nitpick_ignore: list[tuple[str, str]] = [
+    ('py:class', 'OAuth2PKCECredentials'),
+    ('py:class', 'xero.auth.OAuth2PKCECredentials'),
+    ('py:class', 'starlette.requests.Request'),
+    ('py:class', 'starlette.responses.Response'),
+    ('py:class', 'T'),
+    ('py:class', 'P'),
+    ('py:class', 'P.args'),
+    ('py:class', 'P.kwargs'),
+    ('py:obj', 'typing.P'),
+]

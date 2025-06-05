@@ -4,7 +4,7 @@ This file provides guidance to LLM tools such as [aider](https://aider.chat/)
 and [Claude Code](claude.ai/code) when working with code in this repository.
 
 ## Commands
-- Build: `uv sync`
+- Build: `uv sync --all-groups`
 - Run tests: `uv run -m pytest`
 - Run single test: `uv run -m pytest tests/test_file.py::TestClass::test_method -v`
 - Run with coverage: `uv run -m pytest --cov`
@@ -12,6 +12,7 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Type check: `uv run mypy src tests`
 - Lint: Don't run any linters.
 - Format: `ruff format .`
+- Make documentation: From the root of a checkout, `cd docs && make html`
 
 ## Code Style
 - Python 3.13+ with strict type annotations
@@ -26,9 +27,7 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Docstrings with clear parameter descriptions
 - Automated formatting with ruff
 
-
 ## Git commits
 - Keep commit messages succinct, do not use any emojis
 - Do not add prefixes such as "feat:", "chore:", "test:", "fix:", etc.
 - Capitalize the first letter of any commit message
-

@@ -11,8 +11,9 @@ xerotrust
 .. |Git| image:: https://github.com/cjw296/xerotrust/actions/workflows/ci.yml/badge.svg
 .. _Git: https://github.com/cjw296/xerotrust
 
-Backups and data dumps for `Xero`__ accounts.
+This package provides a command line tool to explore and export data from `Xero`__ accounts.
+The intention behind this is to give a safety net in the event that you lose access to your
+Xero accounting data, and also to allow you to analyse it with traditional tools such as
+Excel along with novel approaches you may wish to take using LLMs.
 
 __ https://www.xero.com/
-
-*Coming "soon"...*
