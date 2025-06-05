@@ -8,93 +8,15 @@ https://github.com/cjw296/xerotrust.git
 Once that has been done and you have a checkout, you can follow these instructions to perform
 various development tasks:
 
-Install Dependencies
-^^^^^^^^^^^^^^^^^^^^
+Code Style and Commands
+-----------------------
 
-``uv`` is used for dependency management. To set up a development environment:
+Please refer to the ``CLAUDE.md`` file in the repository root for detailed information about:
 
-.. code-block:: bash
-
-    # Install dependencies
-    uv sync
-
-    # For development, you may want to install in editable mode
-    uv pip install -e .
-
-Code Style
-----------
-
-Xerotrust follows strict code style guidelines:
-
-* Python 3.13+ with strict type annotations
-* Line length: 100 characters
-* Imports: standard library first, then third-party, then local
-* Naming: snake_case for functions/variables, CamelCase for classes
-* Custom exceptions inherit from standard exceptions
-* Comprehensive error handling with context
-* Automated formatting with ruff
-
-Type Checking
-^^^^^^^^^^^^^
-
-Xerotrust uses MyPy for static type checking with strict settings:
-
-.. code-block:: bash
-
-    uv run mypy src tests
-
-The project requires complete type annotations for all functions and methods.
-
-Running Tests
--------------
-
-Xerotrust uses pytest for testing:
-
-.. code-block:: bash
-
-    # Run all tests
-    uv run -m pytest
-
-    # Run a specific test
-    uv run -m pytest tests/test_file.py::TestClass::test_method -v
-
-    # Run tests with coverage
-    uv run -m pytest --cov
-
-    # Generate a coverage report
-    uv run coverage report --show-missing --skip-covered --fail-under 100
-
-Testing Guidelines
-^^^^^^^^^^^^^^^^^^
-
-1. Maintain 100% test coverage for all code
-2. Use testfixtures.compare for assertions instead of assert:
-
-   .. code-block:: python
-
-       from testfixtures import compare
-       
-       # Good
-       compare(actual, expected=expected)
-       
-       # Not recommended
-       assert actual == expected
-
-3. Use fixtures for test setup
-4. Test both success and error cases
-5. Mock external services (like Xero API) during tests
-
-Building Documentation
-----------------------
-
-Documentation is built using Sphinx with the Furo theme:
-
-.. code-block:: bash
-
-    cd docs
-    make html
-
-After building, the documentation will be available in ``_build/html/``.
+* Code style guidelines
+* Development commands (build, test, type check, format)
+* Testing requirements and conventions
+* Git commit message format
 
 Project Structure
 -----------------
