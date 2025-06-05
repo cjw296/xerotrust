@@ -100,6 +100,9 @@ def transform_options(func: Any) -> Any:
     return func
 
 
+OPTION_TRANSFORMS = {'page_size': 'pageSize'}
+
+
 @cli.command()
 @click.pass_obj
 @transform_options
@@ -128,17 +131,19 @@ def tenants(auth_path: Path, transform: tuple[str], field: tuple[str], newline: 
 @transform_options
 @click.option('--since', type=click.DateTime())
 @click.option('--offset', type=int)
+@click.option('--page', type=int)
+@click.option('--page-size', type=int)
 @click.pass_obj
 def explore(
     auth_path: Path,
+    /,
     endpoint: str,
     tenant: str | None,
     transform: tuple[str],
     field: tuple[str],
     newline: bool,
     id_: str | None,
-    since: datetime | None,
-    offset: int | None,
+    **filters: int | None,
 ) -> None:
     """Explore a specific Xero API endpoint."""
     credentials = credentials_from_file(auth_path)
@@ -153,12 +158,16 @@ def explore(
 
     if id_:
         items = manager.get(id_)
-    elif since:
-        items = manager.filter(since=since)
-    elif offset:
-        items = manager.filter(offset=offset)
     else:
-        items = manager.all()
+        filter_options = {
+            OPTION_TRANSFORMS.get(name, name): value
+            for (name, value) in filters.items()
+            if value is not None
+        }
+        if filter_options:
+            items = manager.filter(**filter_options)
+        else:
+            items = manager.all()
 
     show(items, transform, field, newline)
 

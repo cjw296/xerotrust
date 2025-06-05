@@ -2,7 +2,7 @@ import json
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
