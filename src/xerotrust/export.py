@@ -125,14 +125,7 @@ class Export:
                     latest_value = item[latest_field]
                     if isinstance(latest_value, datetime):
                         latest_value = normalize_datetime(latest_value)
-                        existing_value = self.latest[latest_field]
-                        if isinstance(existing_value, datetime):
-                            existing_value = normalize_datetime(existing_value)
-                            self.latest[latest_field] = max(latest_value, existing_value)
-                        else:
-                            self.latest[latest_field] = latest_value
-                    else:
-                        self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+                    self.latest[latest_field] = max(latest_value, self.latest[latest_field])
             yield item
 
 
