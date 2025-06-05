@@ -70,6 +70,7 @@ Full documentation is provided here:
 
    usage.rst
    export.rst
+   flattening.rst
    checks.rst
    authentication.rst
    development.rst

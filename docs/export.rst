@@ -108,28 +108,6 @@ Options include:
 
 The appropriate splitting option depends on the size of your Xero account and how you plan to use the data.
 
-Journal Management
--------------------
-
-Journal Flattening
-^^^^^^^^^^^^^^^^^^^
-
-To convert journal exports to CSV format for easier analysis:
-
-.. code-block:: bash
-
-    xerotrust journals flatten [OPTIONS] PATHS...
-
-where ``PATHS`` are the paths to journal export files.
-
-This command:
-
-1. Reads the JSONL journal files
-2. Flattens the hierarchical journal structure into row-based format
-3. Outputs CSV files with the same name but .csv extension
-
-The CSV format makes it easier to analyze the data in spreadsheet applications or load it into databases.
-
 Working with the Exported Data
 ------------------------------
 
@@ -140,5 +118,8 @@ The exported data can be used for:
 * Integrating with other systems
 * Compliance and audit purposes
 
-Journal files can be validated using the ``journals check`` command (see :doc:`checks` for details).
+For further processing of your exported data:
+
+* Convert journals to CSV format - see :doc:`flattening` 
+* Validate journal integrity - see :doc:`checks`
 
