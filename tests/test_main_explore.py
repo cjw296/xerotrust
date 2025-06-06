@@ -138,7 +138,7 @@ class TestExplore:
         compare(
             result.output,
             expected=dedent(
-                """
+                """\
                 {"ContactID": "c1", "Name": "Contact 1"}
             """
             ),
@@ -163,7 +163,7 @@ class TestExplore:
         compare(
             result.output,
             expected=dedent(
-                """
+                """\
                 {"ContactID": "c5", "Name": "Contact 5"}
             """
             ),
@@ -206,7 +206,7 @@ class TestExplore:
         compare(
             result.output,
             expected=dedent(
-                """
+                """\
                 {'ContactID': 'c1', 'Name': 'Contact 1'}
                 {'ContactID': 'c2', 'Name': 'Contact 2'}
             """
@@ -232,7 +232,7 @@ class TestExplore:
         compare(
             result.output,
             expected=dedent(
-                """
+                """\
                 {'ContactID': 'c1', 'Name': 'Contact 1'}
                 {'ContactID': 'c2', 'Name': 'Contact 2'}
                 """
@@ -267,4 +267,3 @@ class TestExplore:
                 '"CreatedDateUTC": "2023-03-15T13:20:00+00:00"}\n'
             ),
         )
-

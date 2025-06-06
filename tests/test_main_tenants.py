@@ -71,14 +71,13 @@ class TestTenants:
         compare(
             result.output,
             expected=dedent(
-                """
+                """\
                 {'createDateUtc': '2025-04-10T14:09:00.9954070',
                  'id': 't1',
                  'tenantName': 'Tenant 1'}
                 {'createDateUtc': '2025-04-11T14:09:00.9954070',
                  'id': 't2',
                  'tenantName': 'Tenant 2'}
-         """
+        """
             ),
         )
-
