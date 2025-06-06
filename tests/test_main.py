@@ -1,3 +1,5 @@
+"""Tests for functionality shared across all CLI commands."""
+
 import logging
 from pathlib import Path
 from typing import Iterator
@@ -33,4 +35,3 @@ class TestLogLevel:
     def test_log_level_shorthand(self, tmp_path: Path, mocks: Mock) -> None:
         run_cli(tmp_path, "-l", "WARNING", "tenants")
         mocks.basicConfig.assert_called_once_with(level=logging.WARNING)
-
