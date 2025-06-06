@@ -214,5 +214,3 @@ class TestJournalsCheck:
           CreatedDateUTC: 2025-01-15T10:00:00Z -> 2025-01-15T10:00:00Z
         """),
         )
-
-

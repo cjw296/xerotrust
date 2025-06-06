@@ -145,4 +145,3 @@ class TestLogin:
             json.loads(auth_path.read_text())["token"]["expires_at"],
             expected=expires_at,
         )
-
