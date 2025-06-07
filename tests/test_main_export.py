@@ -71,6 +71,7 @@ class TestExport:
         pook.get(
             f"{XERO_API_URL}/BankTransactions",
             headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '1', 'pageSize': '1000'},
             reply=200,
             response_json={
                 'Status': 'OK',
@@ -83,6 +84,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
         )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
@@ -642,6 +650,7 @@ class TestExport:
         pook.get(
             f"{XERO_API_URL}/BankTransactions",
             headers={'Xero-Tenant-Id': tenant_id},
+            params={'page': '1', 'pageSize': '1000'},
             reply=200,
             response_json={
                 'Status': 'OK',
@@ -675,6 +684,13 @@ class TestExport:
                     },
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': tenant_id},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
         )
 
     def test_bank_transactions_uses_bank_transactions_export(
