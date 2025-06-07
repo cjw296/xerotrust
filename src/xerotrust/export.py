@@ -143,9 +143,22 @@ class BankTransactionsExport(Export):
     latest_fields: ClassVar[tuple[str, ...]] = ('UpdatedDateUTC',)
     supports_update: ClassVar[bool] = False
 
+    page_size: int = 1000
+
     def name(self, item: dict[str, Any], split: Split) -> str:
         pattern = f'transactions{SplitSuffix[split]}.jsonl'
         return item['Date'].strftime(pattern)  # type: ignore[no-any-return]
+
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        page = 1
+        while True:
+            entries = retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size)
+            if not entries:
+                break
+            yield from entries
+            page += 1
 
 
 class LatestData(dict[str, dict[str, datetime | int] | None]):
