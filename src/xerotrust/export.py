@@ -141,7 +141,7 @@ class JournalsExport(Export):
 @dataclass
 class BankTransactionsExport(Export):
     latest_fields: ClassVar[tuple[str, ...]] = ('UpdatedDateUTC',)
-    supports_update: ClassVar[bool] = False
+    supports_update: ClassVar[bool] = True
 
     page_size: int = 1000
 
@@ -152,13 +152,35 @@ class BankTransactionsExport(Export):
     def _raw_items(
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
-        page = 1
-        while True:
-            entries = retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size)
-            if not entries:
-                break
-            yield from entries
-            page += 1
+        if latest is None:
+            page = 1
+            while True:
+                entries = retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size)
+                if not entries:
+                    break
+                yield from entries
+                page += 1
+        else:
+            return manager.filter(since=latest['UpdatedDateUTC'])  # type: ignore[no-any-return]
+
+    def items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        self.latest = latest
+        for item in self._raw_items(manager, latest):
+            if (
+                self.latest is not None
+                and item['UpdatedDateUTC'] <= self.latest['UpdatedDateUTC']
+            ):
+                continue
+
+            if self.latest is None:
+                self.latest = {'UpdatedDateUTC': item['UpdatedDateUTC']}
+            else:
+                updated = item['UpdatedDateUTC']
+                self.latest['UpdatedDateUTC'] = max(updated, self.latest['UpdatedDateUTC'])
+
+            yield item
 
 
 class LatestData(dict[str, dict[str, datetime | int] | None]):
