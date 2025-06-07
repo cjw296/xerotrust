@@ -1446,6 +1446,179 @@ class TestExport:
             }
         )
 
+    def test_export_update_bank_transactions_new_data(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        self.write_json(
+            tenant_path / 'latest.json',
+            {"BankTransactions": {"UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}},
+        )
+        self.write_json(
+            tenant_path / 'transactions-2023-03.jsonl',
+            {
+                'BankTransactionID': 'bt1',
+                'Date': '2023-03-15T00:00:00+00:00',
+                'UpdatedDateUTC': '2023-03-15T00:00:00+00:00',
+                'Total': 100.0,
+                'Type': 'SPEND',
+                'BankAccount': {'Name': 'Test Account'},
+            },
+        )
+
+        pook.get(
+            f"{XERO_BANK_TRANSACTIONS_URL}",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt2',
+                        'Date': '/Date(1678924800000+0000)/',
+                        'UpdatedDateUTC': '/Date(1678924800000+0000)/',
+                        'Total': 200.0,
+                        'Type': 'RECEIVE',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                    {
+                        'BankTransactionID': 'bt3',
+                        'Date': '/Date(1710460800000+0000)/',
+                        'UpdatedDateUTC': '/Date(1710460800000+0000)/',
+                        'Total': 300.0,
+                        'Type': 'SPEND',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'banktransactions')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/transactions-2024-03.jsonl': (
+                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': dedent("""
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def test_export_update_bank_transactions_no_new_data(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        self.write_json(
+            tenant_path / 'latest.json',
+            {"BankTransactions": {"UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}},
+        )
+        self.write_json(tenant_path / 'transactions-2023-03.jsonl', {"LEAVE": "THIS"})
+
+        pook.get(
+            f"{XERO_BANK_TRANSACTIONS_URL}",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'banktransactions')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': '{"LEAVE": "THIS"}\n',
+                'Tenant 1/latest.json': dedent("""
+                    {
+                      "BankTransactions": {
+                        "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"
+                      }
+                    }"""),
+            }
+        )
+
+    def test_export_update_bank_transactions_duplicate_last_item(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        timestamp = "2023-03-15T00:00:00.123456+00:00"
+        item = {
+            'BankTransactionID': 'bt1',
+            'Date': '/Date(1678838400123+0000)/',
+            'UpdatedDateUTC': '/Date(1678838400123+0000)/',
+            'Total': 100.0,
+            'Type': 'SPEND',
+            'BankAccount': {'Name': 'Test Account'},
+        }
+
+        self.write_json(
+            tenant_path / 'latest.json',
+            {"BankTransactions": {"UpdatedDateUTC": timestamp}},
+        )
+        self.write_json(
+            tenant_path / 'transactions-2023-03.jsonl',
+            {
+                'BankTransactionID': 'bt1',
+                'Date': '2023-03-15T00:00:00+00:00',
+                'UpdatedDateUTC': timestamp,
+                'Total': 100.0,
+                'Type': 'SPEND',
+                'BankAccount': {'Name': 'Test Account'},
+            },
+        )
+
+        pook.get(
+            f"{XERO_BANK_TRANSACTIONS_URL}",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': [item]},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'banktransactions')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': (
+                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", '
+                    '"UpdatedDateUTC": "2023-03-15T00:00:00.123456+00:00", "Total": 100.0, '
+                    '"Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
+                ),
+                'Tenant 1/latest.json': json.dumps(
+                    {
+                        "BankTransactions": {
+                            "UpdatedDateUTC": "2023-03-15T00:00:00.123456+00:00"
+                        }
+                    },
+                    indent=2,
+                ),
+            }
+        )
+
 
 class TestJournalsCheck:
     def write_journal_file(self, path: Path, journals: list[dict[str, Any]]) -> None:
