@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from time import sleep
-from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar
+from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar, cast
 
 from xero.exceptions import XeroRateLimitExceeded
 
@@ -154,12 +154,10 @@ class BankTransactionsExport(Export):
     ) -> Iterable[dict[str, Any]]:
         page = 1
         while True:
+            kwargs: dict[str, Any] = {'page': page, 'pageSize': self.page_size}
             if latest is not None:
-                entries = retry_on_rate_limit(
-                    manager.filter, page=page, pageSize=self.page_size, since=latest['UpdatedDateUTC']
-                )
-            else:
-                entries = retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size)
+                kwargs['since'] = cast(datetime, latest['UpdatedDateUTC'])
+            entries = retry_on_rate_limit(manager.filter, **kwargs)
             if not entries:
                 break
             yield from entries
