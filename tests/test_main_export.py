@@ -959,3 +959,81 @@ class TestExport:
                 'Tenant 1/latest.json': snapshot,
             }
         )
+
+    def test_export_update_bank_transactions_with_rate_limit(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        self.write_json(
+            tenant_path / 'latest.json',
+            {"BankTransactions": {"UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}},
+        )
+        self.write_json(tenant_path / 'transactions-2023-03.jsonl', {"LEAVE": "THIS"})
+
+        # First request hits rate limit
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            params={'page': '1', 'pageSize': '1000'},
+            reply=429,  # Rate limit exceeded
+            response_headers={'retry-after': '1'},
+        )
+
+        # Second request (after retry) succeeds
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            params={'page': '1', 'pageSize': '1000'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt1',
+                        'Date': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        'UpdatedDateUTC': '/Date(1678924800000+0000)/',
+                        'Total': 100.0,
+                        'Type': 'SPEND',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                ],
+            },
+        )
+
+        # End of pagination
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Thu, 16 Mar 2023 00:00:00 GMT',
+            },
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+
+        # Mock the sleep function to avoid actually waiting
+        mock_sleep = Mock()
+
+        with replace_in_module(time.sleep, mock_sleep, module=export):
+            run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'banktransactions')
+
+        # Verify sleep was called with retry-after value
+        mock_sleep.assert_called_once_with(1)
+
+        # Verify the bank transaction was exported after retrying
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
