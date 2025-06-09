@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from click.testing import CliRunner, Result
+from pytest_insta import SnapshotFixture
 from testfixtures import compare
 from xero.auth import OAuth2PKCECredentials
 
@@ -14,13 +15,20 @@ from xerotrust.main import cli
 class FileChecker:
     tmp_path: Path
 
-    def __call__(self, expected: dict[str, str]) -> None:
+    def __call__(self, expected: dict[str, str | SnapshotFixture]) -> None:
+        expected_files = {}
+        for relative_path, expected_value in expected.items():
+            if isinstance(expected_value, SnapshotFixture):
+                expected_content = expected_value(Path(relative_path).with_suffix('.txt').name)
+            else:
+                expected_content = expected_value
+            expected_files[relative_path] = expected_content
         actual_files = {}
         for path in self.tmp_path.rglob('*'):
             if path.is_file():
                 relative_path = str(path.relative_to(self.tmp_path))
                 actual_files[relative_path] = path.read_text()
-        compare(expected=expected, actual=actual_files)
+        compare(expected=expected_files, actual=actual_files)
 
 
 XERO_API_URL = "https://api.xero.com/api.xro/2.0"
