@@ -638,8 +638,7 @@ class TestExport:
             }
         )
 
-    def setup_bank_transactions_mocks(self, pook: Any, tenant_id: str = 't1') -> None:
-        """Helper to set up common pook mocks for bank transaction exports."""
+    def add_bank_transaction_response(self, pook: Any, tenant_id: str = 't1') -> None:
         pook.get(
             f"{XERO_API_URL}/BankTransactions",
             headers={'Xero-Tenant-Id': tenant_id},
@@ -679,7 +678,7 @@ class TestExport:
         self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
-        self.setup_bank_transactions_mocks(pook)
+        self.add_bank_transaction_response(pook)
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'banktransactions')
 
@@ -696,7 +695,7 @@ class TestExport:
         self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
-        self.setup_bank_transactions_mocks(pook)
+        self.add_bank_transaction_response(pook)
 
         run_cli(
             tmp_path,
@@ -724,7 +723,7 @@ class TestExport:
         self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
-        self.setup_bank_transactions_mocks(pook)
+        self.add_bank_transaction_response(pook)
 
         run_cli(
             tmp_path,
@@ -751,7 +750,7 @@ class TestExport:
         self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
-        self.setup_bank_transactions_mocks(pook)
+        self.add_bank_transaction_response(pook)
 
         run_cli(
             tmp_path,
