@@ -1,10 +1,31 @@
+"""Tests for utility functions and classes."""
+
 import json
+from datetime import date
 from pathlib import Path
 
-from testfixtures import ShouldRaise
+from testfixtures import ShouldAssert, ShouldRaise, compare
 
+from xerotrust.check import minimal_repr
 from xerotrust.export import FileManager
+from xerotrust.transform import TRANSFORMERS
+
 from .helpers import FileChecker
+
+
+def test_minimal_repr() -> None:
+    """Directly test the minimal_repr helper."""
+    compare(minimal_repr([]), expected="")
+    compare(minimal_repr([1]), expected="1")
+    compare(minimal_repr([1, 2]), expected="1-2")
+    compare(minimal_repr([1, 3]), expected="1, 3")
+    compare(minimal_repr([1, 2, 4, 5, 7]), expected="1-2, 4-5, 7")
+    compare(minimal_repr([5, 1, 3, 2, 4]), expected="1-5")
+
+
+def test_json_with_unsupported_type() -> None:
+    with ShouldAssert("Unexpected type: <class 'datetime.date'>, datetime.date(2021, 1, 1)"):
+        TRANSFORMERS['json'](date(2021, 1, 1))
 
 
 class TestFileManager:
