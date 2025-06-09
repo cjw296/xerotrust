@@ -1,0 +1,1 @@
+{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}
