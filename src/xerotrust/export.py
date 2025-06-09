@@ -152,16 +152,18 @@ class BankTransactionsExport(Export):
     def _raw_items(
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
-        if latest is None:
-            page = 1
-            while True:
+        page = 1
+        while True:
+            if latest is not None:
+                entries = retry_on_rate_limit(
+                    manager.filter, page=page, pageSize=self.page_size, since=latest['UpdatedDateUTC']
+                )
+            else:
                 entries = retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size)
-                if not entries:
-                    break
-                yield from entries
-                page += 1
-        else:
-            return manager.filter(since=latest['UpdatedDateUTC'])  # type: ignore[no-any-return]
+            if not entries:
+                break
+            yield from entries
+            page += 1
 
     def items(
         self, manager: Any, latest: dict[str, int | datetime] | None
