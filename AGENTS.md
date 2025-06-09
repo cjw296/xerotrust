@@ -10,6 +10,7 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Type check: `uv run mypy src tests`
 - Lint: Don't run any linters.
 - Format: `ruff format .`
+- Update pytest-insta snapshots that use SnapshotFixture with: `uv run -m pytest --insta update tests/test_file.py::TestClass::test_method -v`
 
 ## Important: Always Format Code
 **ALWAYS run `ruff format .` after making any code changes.** This ensures consistent code formatting across the entire codebase. Do not commit code without formatting it first.

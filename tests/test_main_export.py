@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from pytest_insta import SnapshotFixture
 from testfixtures import replace_in_module
 
 from xerotrust import export
@@ -24,7 +25,7 @@ pytestmark = pytest.mark.usefixtures("mock_credentials_from_file")
 
 class TestExport:
     def test_all_endpoints_single_tenant(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -92,24 +93,12 @@ class TestExport:
                 'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/transactions-2023-01.jsonl': '{"BankTransactionID": "bt1", "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "Total": 100.0}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Accounts": {
-                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
-                      },
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
-                      },
-                      "Journals": null,
-                      "BankTransactions": {
-                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_specific_endpoint_multiple_tenants(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(
             pook,
@@ -155,25 +144,15 @@ class TestExport:
             {
                 'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/latest.json': snapshot,
                 'Tenant 2/contacts.jsonl': '{"ContactID": "c2", "Name": "Cont 2", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 2/tenant.json': '{"tenantId": "t2", "tenantName": "Tenant 2"}\n',
-                'Tenant 2/latest.json': dedent("""\
-                    {
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 2/latest.json': snapshot,
             },
         )
 
     def test_journals_uses_journals_export(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -210,22 +189,13 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/journals-2023-03.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
-                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Journals": {
-                        "JournalDate": "2023-03-16T00:00:00+00:00",
-                        "JournalNumber": 2
-                      }
-                    }"""),
+                'Tenant 1/journals-2023-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_journals_with_rate_limit(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -281,16 +251,8 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/journals-2023-04.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-04-20T00:00:00+00:00", "JournalNumber": 1}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Journals": {
-                        "JournalDate": "2023-04-20T00:00:00+00:00",
-                        "JournalNumber": 1
-                      }
-                    }"""),
+                'Tenant 1/journals-2023-04.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
@@ -329,7 +291,9 @@ class TestExport:
             response_json={'Status': 'OK', 'Journals': []},
         )
 
-    def test_journals_split_days(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_journals_split_days(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_journal_mocks(pook)
 
@@ -348,27 +312,15 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/journals-2023-03-15.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
-                ),
-                'Tenant 1/journals-2023-03-16.jsonl': (
-                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
-                ),
-                'Tenant 1/journals-2024-03-15.jsonl': (
-                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Journals": {
-                        "JournalDate": "2024-03-15T00:00:00+00:00",
-                        "JournalNumber": 3
-                      }
-                    }"""),
+                'Tenant 1/journals-2023-03-15.jsonl': snapshot,
+                'Tenant 1/journals-2023-03-16.jsonl': snapshot,
+                'Tenant 1/journals-2024-03-15.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_journals_split_months(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_journal_mocks(pook)
@@ -388,25 +340,14 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/journals-2023-03.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
-                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
-                ),
-                'Tenant 1/journals-2024-03.jsonl': (
-                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Journals": {
-                        "JournalDate": "2024-03-15T00:00:00+00:00",
-                        "JournalNumber": 3
-                      }
-                    }"""),
+                'Tenant 1/journals-2023-03.jsonl': snapshot,
+                'Tenant 1/journals-2024-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_journals_split_years(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_journal_mocks(pook)
@@ -426,20 +367,9 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/journals-2023.jsonl': (
-                    '{"JournalID": "j1", "JournalDate": "2023-03-15T00:00:00+00:00", "JournalNumber": 1}\n'
-                    '{"JournalID": "j2", "JournalDate": "2023-03-16T00:00:00+00:00", "JournalNumber": 2}\n'
-                ),
-                'Tenant 1/journals-2024.jsonl': (
-                    '{"JournalID": "j3", "JournalDate": "2024-03-15T00:00:00+00:00", "JournalNumber": 3}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Journals": {
-                        "JournalDate": "2024-03-15T00:00:00+00:00",
-                        "JournalNumber": 3
-                      }
-                    }"""),
+                'Tenant 1/journals-2023.jsonl': snapshot,
+                'Tenant 1/journals-2024.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
@@ -515,7 +445,7 @@ class TestExport:
         )
 
     def test_export_update_journals_no_new_data(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         tenant_path = tmp_path / "Tenant 1"
         add_tenants_response(pook, [{'tenantId': "t1", 'tenantName': "Tenant 1"}])
@@ -545,18 +475,12 @@ class TestExport:
                 # Journal file should be untouched as no new data for its period was fetched:
                 f'Tenant 1/journals-2023-03.jsonl': '{"LEAVE": "THIS"}\n',
                 # latest.json should be as it was before:
-                'Tenant 1/latest.json': dedent('''\
-                    {
-                      "Journals": {
-                        "JournalDate": "2023-03-15T00:00:00+00:00",
-                        "JournalNumber": 1
-                      }
-                    }'''),
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_export_update_contacts_new_data(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         tenant_path = tmp_path / "Tenant 1"
         add_tenants_response(pook, [{'tenantId': "t1", 'tenantName': "Tenant 1"}])
@@ -597,21 +521,13 @@ class TestExport:
         check_files(
             {
                 f'Tenant 1/tenant.json': f'{{"tenantId": "t1", "tenantName": "Tenant 1"}}\n',
-                f'Tenant 1/contacts.jsonl': (
-                    '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}\n'
-                    '{"ContactID": "c2", "Name": "Cont 2", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00"}\n'
-                ),
-                f'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-03-16T00:00:00+00:00"
-                      }
-                    }"""),
+                f'Tenant 1/contacts.jsonl': snapshot,
+                f'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_export_update_contacts_no_new_data(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         tenant_path = tmp_path / "Tenant 1"
         add_tenants_response(pook, [{'tenantId': "t1", 'tenantName': "Tenant 1"}])
@@ -645,20 +561,13 @@ class TestExport:
         check_files(
             {
                 f'Tenant 1/tenant.json': f'{{"tenantId": "t1", "tenantName": "Tenant 1"}}\n',
-                f'Tenant 1/contacts.jsonl': (
-                    '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}\n'
-                ),
-                f'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                f'Tenant 1/contacts.jsonl': snapshot,
+                f'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_export_update_multiple_endpoints(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         tenant_path = tmp_path / "Tenant 1"
         add_tenants_response(pook, [{'tenantId': "t1", 'tenantName': "Tenant 1"}])
@@ -723,22 +632,9 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/accounts.jsonl': (  # Overwritten with new a1 (updated) and a2
-                    '{"AccountID": "a1", "Name": "Acc 1 Updated", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00"}\n'
-                    '{"AccountID": "a2", "Name": "Acc 2", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00"}\n'
-                ),
-                'Tenant 1/contacts.jsonl': (  # Overwritten with c1 (no change)
-                    '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "Accounts": {
-                        "UpdatedDateUTC": "2023-03-16T00:00:00+00:00"
-                      },
-                      "Contacts": {
-                        "UpdatedDateUTC": "2023-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/accounts.jsonl': snapshot,  # Overwritten with new a1 (updated) and a2
+                'Tenant 1/contacts.jsonl': snapshot,  # Overwritten with c1 (no change)
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
@@ -780,7 +676,7 @@ class TestExport:
         )
 
     def test_bank_transactions_uses_bank_transactions_export(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_bank_transactions_mocks(pook)
@@ -790,24 +686,14 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/transactions-2023-03.jsonl': (
-                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/transactions-2024-03.jsonl': (
-                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "BankTransactions": {
-                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/transactions-2023-03.jsonl': snapshot,
+                'Tenant 1/transactions-2024-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_bank_transactions_split_days(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_bank_transactions_mocks(pook)
@@ -827,26 +713,15 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/transactions-2023-03-15.jsonl': (
-                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/transactions-2023-03-16.jsonl': (
-                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/transactions-2024-03-15.jsonl': (
-                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "BankTransactions": {
-                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/transactions-2023-03-15.jsonl': snapshot,
+                'Tenant 1/transactions-2023-03-16.jsonl': snapshot,
+                'Tenant 1/transactions-2024-03-15.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_bank_transactions_split_months(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_bank_transactions_mocks(pook)
@@ -866,24 +741,14 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/transactions-2023-03.jsonl': (
-                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/transactions-2024-03.jsonl': (
-                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "BankTransactions": {
-                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/transactions-2023-03.jsonl': snapshot,
+                'Tenant 1/transactions-2024-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
 
     def test_bank_transactions_split_none(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
         self.setup_bank_transactions_mocks(pook)
@@ -903,16 +768,7 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/transactions.jsonl': (
-                    '{"BankTransactionID": "bt1", "Date": "2023-03-15T00:00:00+00:00", "UpdatedDateUTC": "2023-03-15T00:00:00+00:00", "Total": 100.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                    '{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}\n'
-                    '{"BankTransactionID": "bt3", "Date": "2024-03-15T00:00:00+00:00", "UpdatedDateUTC": "2024-03-15T00:00:00+00:00", "Total": 300.0, "Type": "SPEND", "BankAccount": {"Name": "Test Account"}}\n'
-                ),
-                'Tenant 1/latest.json': dedent("""\
-                    {
-                      "BankTransactions": {
-                        "UpdatedDateUTC": "2024-03-15T00:00:00+00:00"
-                      }
-                    }"""),
+                'Tenant 1/transactions.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
             }
         )
