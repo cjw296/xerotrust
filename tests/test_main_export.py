@@ -649,6 +649,7 @@ class TestExport:
                     {
                         'BankTransactionID': 'bt1',
                         'Date': '/Date(1678838400000+0000)/',  # 2023-03-15
+                        "DateString": "2023-03-15T00:00:00",
                         'UpdatedDateUTC': '/Date(1678838400000+0000)/',
                         'Total': 100.0,
                         'Type': 'SPEND',
@@ -657,6 +658,7 @@ class TestExport:
                     {
                         'BankTransactionID': 'bt2',
                         'Date': '/Date(1678924800000+0000)/',  # 2023-03-16
+                        "DateString": "2023-03-16T00:00:00",
                         'UpdatedDateUTC': '/Date(1678924800000+0000)/',
                         'Total': 200.0,
                         'Type': 'RECEIVE',
@@ -665,6 +667,7 @@ class TestExport:
                     {
                         'BankTransactionID': 'bt3',
                         'Date': '/Date(1710460800000+0000)/',  # 2024-03-15
+                        "DateString": "2024-03-15T00:00:00",
                         'UpdatedDateUTC': '/Date(1710460800000+0000)/',
                         'Total': 300.0,
                         'Type': 'SPEND',

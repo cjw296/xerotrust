@@ -1,1 +1,1 @@
-{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}
+{"BankTransactionID": "bt2", "Date": "2023-03-16T00:00:00+00:00", "DateString": "2023-03-16T00:00:00", "UpdatedDateUTC": "2023-03-16T00:00:00+00:00", "Total": 200.0, "Type": "RECEIVE", "BankAccount": {"Name": "Test Account"}}
