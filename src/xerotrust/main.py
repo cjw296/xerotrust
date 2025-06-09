@@ -2,16 +2,16 @@ import csv
 import json
 import logging
 import time
-from datetime import datetime
+from collections import deque
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable
 
 import click
 import enlighten
 from xero import Xero
 
 from .authentication import authenticate, credentials_from_file
-from .check import check_journals, show_summary
+from .check import show_summary, CHECKERS, jsonl_stream
 from .export import EXPORTS, FileManager, Split, LatestData
 from .flatten import flatten, ALL_JOURNAL_KEYS
 from .transform import TRANSFORMERS, show
@@ -255,38 +255,28 @@ def export(
             latest.save(latest_path)
 
 
-@cli.group()
-def journals() -> None:
-    """Commands for working with journals."""
-    pass
-
-
-def journal_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
-    for path_ in paths_:
-        with path_.open() as source:
-            for line in source:
-                yield json.loads(line)
-
-
-@journals.command('check')
+@cli.command()
+@click.argument('endpoint')
 @click.argument(
     'paths',
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
     nargs=-1,
     required=True,
 )
-def check_command(paths: tuple[Path, ...]) -> None:
-    """
-    Check journals export files for duplicate IDs, duplicate numbers, and number gaps.
+def check(endpoint: str, paths: tuple[Path, ...]) -> None:
+    """Check exported data for issues."""
 
-    Accepts one or more PATHS. Shell globbing (e.g., *.jsonl) can be used.
-    """
+    endpoint_lower = endpoint.lower()
+    if endpoint_lower not in CHECKERS:
+        raise click.ClickException(f'Unsupported endpoint: {endpoint}')
 
-    check_journals(
-        show_summary(
-            journal_stream(paths), fields=['JournalNumber', 'JournalDate', 'CreatedDateUTC']
-        )
-    )
+    stream = jsonl_stream(paths)
+    steps = CHECKERS[endpoint_lower]
+    for step in steps:
+        stream = step(stream)
+
+    # Consume the final stream to run the checks:
+    deque(stream, maxlen=0)
 
 
 @cli.command('flatten')
@@ -316,5 +306,5 @@ def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) 
     # We'll let the csv.DictWriter handle the file object.
     csv_writer = csv.DictWriter(output_file, fieldnames=ALL_JOURNAL_KEYS)
     csv_writer.writeheader()
-    for row in flatten(journal_stream(paths)):
+    for row in flatten(jsonl_stream(paths)):
         csv_writer.writerow(row)

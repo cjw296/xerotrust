@@ -1,4 +1,6 @@
-from typing import Iterable, Any, Sequence
+import json
+from pathlib import Path
+from typing import Iterable, Any, Sequence, Iterator
 
 
 def minimal_repr(seq: Sequence[int]) -> str:
@@ -11,7 +13,14 @@ def minimal_repr(seq: Sequence[int]) -> str:
     return ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in ranges)
 
 
-def check_journals(journals: Iterable[dict[str, Any]]) -> None:
+def jsonl_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
+    for path_ in paths_:
+        with path_.open() as source:
+            for line in source:
+                yield json.loads(line)
+
+
+def check_journals(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
     seen_ids = set()
     seen_numbers = set()
     journal_numbers = []
@@ -32,6 +41,7 @@ def check_journals(journals: Iterable[dict[str, Any]]) -> None:
         elif jnum is not None:
             seen_numbers.add(jnum)
             journal_numbers.append(jnum)
+        yield journal
 
     # Filter out None before processing numbers for gaps
     valid_journal_numbers = [num for num in journal_numbers if isinstance(num, int)]
@@ -55,7 +65,8 @@ def check_journals(journals: Iterable[dict[str, Any]]) -> None:
         raise ExceptionGroup("Journal validation errors", errors)
 
 
-def show_summary(journals: Iterable[dict[str, Any]], fields: list[str]) -> Iterable[dict[str, Any]]:
+def show_summary(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    fields = 'JournalNumber', 'JournalDate', 'CreatedDateUTC'
     count = 0
     data = {field: {"min": None, "max": None} for field in fields}
 
@@ -79,3 +90,8 @@ def show_summary(journals: Iterable[dict[str, Any]], fields: list[str]) -> Itera
         min_value = data[field]["min"]
         max_value = data[field]["max"]
         print(f"{field:>{padding}}: {min_value} -> {max_value}")
+
+
+CHECKERS = {
+    'journals': (check_journals, show_summary),
+}
