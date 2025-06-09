@@ -74,6 +74,22 @@ class FileManager:
         self.close()
 
 
+class LatestData(dict[str, dict[str, datetime | int] | None]):
+    @classmethod
+    def load(cls, path: Path) -> Self:
+        instance = cls()
+        if path.exists():
+            for endpoint, data in json.loads(path.read_text()).items():
+                for key in data:
+                    if 'Date' in key:
+                        data[key] = datetime.fromisoformat(data[key])
+                instance[endpoint] = data
+        return instance
+
+    def save(self, path: Path) -> None:
+        path.write_text(json.dumps(self, cls=DateTimeEncoder, indent=2))
+
+
 Namer: TypeAlias = Callable[[dict[str, Any]], str]
 
 
@@ -168,10 +184,7 @@ class BankTransactionsExport(Export):
     ) -> Iterable[dict[str, Any]]:
         self.latest = latest
         for item in self._raw_items(manager, latest):
-            if (
-                self.latest is not None
-                and item['UpdatedDateUTC'] <= self.latest['UpdatedDateUTC']
-            ):
+            if self.latest is not None and item['UpdatedDateUTC'] <= self.latest['UpdatedDateUTC']:
                 continue
 
             if self.latest is None:
@@ -181,22 +194,6 @@ class BankTransactionsExport(Export):
                 self.latest['UpdatedDateUTC'] = max(updated, self.latest['UpdatedDateUTC'])
 
             yield item
-
-
-class LatestData(dict[str, dict[str, datetime | int] | None]):
-    @classmethod
-    def load(cls, path: Path) -> Self:
-        instance = cls()
-        if path.exists():
-            for endpoint, data in json.loads(path.read_text()).items():
-                for key in data:
-                    if 'Date' in key:
-                        data[key] = datetime.fromisoformat(data[key])
-                instance[endpoint] = data
-        return instance
-
-    def save(self, path: Path) -> None:
-        path.write_text(json.dumps(self, cls=DateTimeEncoder, indent=2))
 
 
 EXPORTS = {
