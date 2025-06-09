@@ -3,13 +3,12 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
-import pytest
 from testfixtures import ShouldRaise, compare
 
 from .helpers import run_cli
 
 
-class TestJournalsCheck:
+class TestCheck:
     def write_journal_file(self, path: Path, journals: list[dict[str, Any]]) -> None:
         """Helper to write a JSON Lines file."""
         path.write_text('\n'.join(json.dumps(j) for j in journals) + '\n')
@@ -38,7 +37,7 @@ class TestJournalsCheck:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'journals', 'check', str(journal_file))
+        result = run_cli(tmp_path, 'check', 'journals', str(journal_file))
 
         compare(
             result.output,
@@ -78,7 +77,7 @@ class TestJournalsCheck:
         self.write_journal_file(file1, journals1)
         self.write_journal_file(file2, journals2)
 
-        result = run_cli(tmp_path, 'journals', 'check', str(file1), str(file2))
+        result = run_cli(tmp_path, 'check', 'journals', str(file1), str(file2))
 
         compare(
             result.output,
@@ -104,7 +103,7 @@ class TestJournalsCheck:
                 (ValueError("Duplicate JournalID found: j1"),),
             )
         ):
-            run_cli(tmp_path, 'journals', 'check', str(journal_file), expected_return_code=1)
+            run_cli(tmp_path, 'check', 'journals', str(journal_file), expected_return_code=1)
 
     def test_check_duplicate_number(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals_dup_num.jsonl"
@@ -120,7 +119,7 @@ class TestJournalsCheck:
                 (ValueError("Duplicate JournalNumber found: 1"),),
             )
         ):
-            run_cli(tmp_path, 'journals', 'check', str(journal_file), expected_return_code=1)
+            run_cli(tmp_path, 'check', 'journals', str(journal_file), expected_return_code=1)
 
     def test_check_missing_number(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals_missing_num.jsonl"
@@ -136,7 +135,7 @@ class TestJournalsCheck:
                 (ValueError("Missing JournalNumbers: 2"),),
             )
         ):
-            run_cli(tmp_path, 'journals', 'check', str(journal_file), expected_return_code=1)
+            run_cli(tmp_path, 'check', 'journals', str(journal_file), expected_return_code=1)
 
     def test_check_missing_number_range(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals_missing_range.jsonl"
@@ -152,7 +151,7 @@ class TestJournalsCheck:
                 (ValueError("Missing JournalNumbers: 2-4"),),
             )
         ):
-            run_cli(tmp_path, 'journals', 'check', str(journal_file), expected_return_code=1)
+            run_cli(tmp_path, 'check', 'journals', str(journal_file), expected_return_code=1)
 
     def test_check_combined_errors(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals_combined_errors.jsonl"
@@ -175,13 +174,13 @@ class TestJournalsCheck:
                 ),
             )
         ):
-            run_cli(tmp_path, 'journals', 'check', str(journal_file), expected_return_code=1)
+            run_cli(tmp_path, 'check', 'journals', str(journal_file), expected_return_code=1)
 
     def test_check_empty_file(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "empty.jsonl"
         journal_file.touch()
 
-        result = run_cli(tmp_path, 'journals', 'check', str(journal_file))
+        result = run_cli(tmp_path, 'check', 'journals', str(journal_file))
         compare(
             result.output,
             expected=dedent("""\
@@ -204,7 +203,7 @@ class TestJournalsCheck:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'journals', 'check', str(journal_file))
+        result = run_cli(tmp_path, 'check', 'journals', str(journal_file))
         compare(
             result.output,
             expected=dedent("""\
@@ -214,3 +213,11 @@ class TestJournalsCheck:
           CreatedDateUTC: 2025-01-15T10:00:00Z -> 2025-01-15T10:00:00Z
         """),
         )
+
+    def test_check_unknown_endpoint(self, tmp_path: Path) -> None:
+        data_file = tmp_path / "data.jsonl"
+        data_file.touch()
+
+        result = run_cli(tmp_path, "check", "foo", str(data_file), expected_return_code=1)
+
+        compare(result.output, expected="Error: Unsupported endpoint: foo\n")
