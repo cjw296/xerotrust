@@ -11,6 +11,9 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Lint: Don't run any linters.
 - Format: `ruff format .`
 
+## Important: Always Format Code
+**ALWAYS run `ruff format .` after making any code changes.** This ensures consistent code formatting across the entire codebase. Do not commit code without formatting it first.
+
 ## Code Style
 - Python 3.13+ with strict type annotations
 - Line length: 100 characters
