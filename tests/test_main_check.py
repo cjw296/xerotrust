@@ -13,6 +13,10 @@ class TestCheck:
         """Helper to write a JSON Lines file."""
         path.write_text('\n'.join(json.dumps(j) for j in journals) + '\n')
 
+    def write_transaction_file(self, path: Path, transactions: list[dict[str, Any]]) -> None:
+        """Helper to write a JSON Lines file for transactions."""
+        path.write_text('\n'.join(json.dumps(t) for t in transactions) + '\n')
+
     def test_check_success_single_file(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals.jsonl"
         journals_data = [
@@ -221,3 +225,66 @@ class TestCheck:
         result = run_cli(tmp_path, "check", "foo", str(data_file), expected_return_code=1)
 
         compare(result.output, expected="Error: Unsupported endpoint: foo\n")
+
+    def test_check_transactions_success(self, tmp_path: Path) -> None:
+        transaction_file = tmp_path / "transactions.jsonl"
+        transactions_data = [
+            {
+                "BankTransactionID": "t1",
+                "Date": "2022-01-04T00:00:00+00:00",
+                "Total": 50.0,
+            },
+            {
+                "BankTransactionID": "t2",
+                "Date": "2022-01-05T00:00:00+00:00",
+                "Total": 100.0,
+            },
+            {
+                "BankTransactionID": "t3",
+                "Date": "2022-01-06T00:00:00+00:00",
+                "Total": 75.0,
+            },
+        ]
+        self.write_transaction_file(transaction_file, transactions_data)
+
+        result = run_cli(tmp_path, 'check', 'transactions', str(transaction_file))
+
+        compare(
+            result.output,
+            expected=dedent("""\
+                transactions: 3
+                        Date: 2022-01-04T00:00:00+00:00 -> 2022-01-06T00:00:00+00:00
+                """),
+        )
+
+    def test_check_transactions_duplicate_id(self, tmp_path: Path) -> None:
+        transaction_file = tmp_path / "transactions_dup_id.jsonl"
+        transactions_data = [
+            {"BankTransactionID": "t1", "Date": "2022-01-04T00:00:00+00:00"},
+            {"BankTransactionID": "t1", "Date": "2022-01-05T00:00:00+00:00"},
+        ]
+        self.write_transaction_file(transaction_file, transactions_data)
+
+        with ShouldRaise(
+            ExceptionGroup(
+                "Transaction validation errors",
+                (ValueError("Duplicate BankTransactionID found: t1"),),
+            )
+        ):
+            run_cli(
+                tmp_path, 'check', 'transactions', str(transaction_file), expected_return_code=1
+            )
+
+    def test_check_transactions_empty_file(self, tmp_path: Path) -> None:
+        transaction_file = tmp_path / "empty.jsonl"
+        transaction_file.touch()
+
+        result = run_cli(tmp_path, 'check', 'transactions', str(transaction_file))
+
+        compare(
+            result.output,
+            expected=dedent("""\
+                transactions: 0
+                        Date: None -> None
+                """),
+        )

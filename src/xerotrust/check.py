@@ -92,6 +92,48 @@ def show_summary(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]
         print(f"{field:>{padding}}: {min_value} -> {max_value}")
 
 
+def check_transactions(transactions: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    seen_ids = set()
+    errors = []
+
+    for transaction in transactions:
+        transaction_id = transaction.get("BankTransactionID")
+
+        if transaction_id in seen_ids:
+            errors.append(ValueError(f"Duplicate BankTransactionID found: {transaction_id}"))
+        elif transaction_id is not None:
+            seen_ids.add(transaction_id)
+
+        yield transaction
+
+    if errors:
+        # Ensure consistent order for testing
+        errors.sort(key=lambda e: str(e))
+        raise ExceptionGroup("Transaction validation errors", errors)
+
+
+def show_transactions_summary(transactions: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    count = 0
+    min_date = None
+    max_date = None
+
+    for transaction in transactions:
+        count += 1
+        date_value = transaction.get("Date")
+
+        if date_value is not None:
+            if min_date is None or date_value < min_date:
+                min_date = date_value
+            if max_date is None or date_value > max_date:
+                max_date = date_value
+
+        yield transaction
+
+    print(f"transactions: {count}")
+    print(f"        Date: {min_date} -> {max_date}")
+
+
 CHECKERS = {
     'journals': (check_journals, show_summary),
+    'transactions': (check_transactions, show_transactions_summary),
 }
