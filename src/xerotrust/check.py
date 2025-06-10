@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Iterable, Any, Sequence, Iterator
 
@@ -69,6 +70,7 @@ def show_summary(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]
     fields = 'JournalNumber', 'JournalDate', 'CreatedDateUTC'
     count = 0
     data = {field: {"min": None, "max": None} for field in fields}
+    source_type_counts: defaultdict[str, int] = defaultdict(int)
 
     for count, journal in enumerate(journals, start=1):
         for field in fields:
@@ -82,6 +84,10 @@ def show_summary(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]
                     data[field]["min"] = value
                 if current_max is None or value > current_max:
                     data[field]["max"] = value
+
+        # Count SourceType occurrences
+        source_type_counts[journal.get("SourceType", "<none>")] += 1
+
         yield journal
 
     padding = max(len(field) for field in fields)
@@ -90,6 +96,12 @@ def show_summary(journals: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]
         min_value = data[field]["min"]
         max_value = data[field]["max"]
         print(f"{field:>{padding}}: {min_value} -> {max_value}")
+
+    # Print SourceType summary
+    print()
+    print("SourceType summary:")
+    for source_type, count in sorted(source_type_counts.items()):
+        print(f"  {source_type}: {count}")
 
 
 CHECKERS = {

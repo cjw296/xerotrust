@@ -270,7 +270,7 @@ def check(endpoint: str, paths: tuple[Path, ...]) -> None:
     if endpoint_lower not in CHECKERS:
         raise click.ClickException(f'Unsupported endpoint: {endpoint}')
 
-    stream = jsonl_stream(paths)
+    stream: Iterable[dict[str, Any]] = jsonl_stream(paths)
     steps = CHECKERS[endpoint_lower]
     for step in steps:
         stream = step(stream)

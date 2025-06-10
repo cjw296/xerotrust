@@ -1,0 +1,6 @@
+       entries: 0
+ JournalNumber: None -> None
+   JournalDate: None -> None
+CreatedDateUTC: None -> None
+
+SourceType summary:
