@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Iterable, Any, Sequence, Iterator
+from typing import Iterable, Any, Sequence
 
 
 def minimal_repr(seq: Sequence[int]) -> str:
@@ -13,7 +13,7 @@ def minimal_repr(seq: Sequence[int]) -> str:
     return ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in ranges)
 
 
-def jsonl_stream(paths_: Iterable[Path]) -> Iterator[dict[str, Any]]:
+def jsonl_stream(paths_: Iterable[Path]) -> Iterable[dict[str, Any]]:
     for path_ in paths_:
         with path_.open() as source:
             for line in source:

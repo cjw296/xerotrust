@@ -1,5 +1,5 @@
 import json
-from typing import Iterator, Any
+from typing import Any, Iterable
 
 ALL_JOURNAL_KEYS = [
     'JournalID',
@@ -24,7 +24,7 @@ ALL_JOURNAL_KEYS = [
 ]
 
 
-def flatten(rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+def flatten(rows: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
     for journal in rows:
         journal_lines = journal.pop('JournalLines', [])
         for journal_line in journal_lines:
