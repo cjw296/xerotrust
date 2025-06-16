@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import time
+import glob
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator
@@ -13,7 +14,7 @@ from xero import Xero
 from .authentication import authenticate, credentials_from_file
 from .check import check_journals, show_summary
 from .export import EXPORTS, FileManager, Split, LatestData
-from .flatten import flatten, ALL_JOURNAL_KEYS
+from .flatten import flatten, ALL_JOURNAL_KEYS, load_transactions
 from .transform import TRANSFORMERS, show
 
 
@@ -304,7 +305,18 @@ def check_command(paths: tuple[Path, ...]) -> None:
     default='-',
     help='Output file path. Defaults to stdout.',
 )
-def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) -> None:
+@click.option(
+    '-t',
+    '--transactions',
+    'transaction_globs',
+    multiple=True,
+    help='Glob of BankTransaction export files used to augment journals',
+)
+def flatten_command(
+    paths: tuple[Path, ...],
+    output_file: click.utils.LazyFile,
+    transaction_globs: tuple[str, ...],
+) -> None:
     """
     Flatten journal entries, augmenting them with transaction data if requested, into CSV format.
 
@@ -314,7 +326,28 @@ def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) 
     # The type hint for output_file from click.File('w') is IO[str],
     # but click.utils.LazyFile is what's actually passed at runtime before it's opened.
     # We'll let the csv.DictWriter handle the file object.
-    csv_writer = csv.DictWriter(output_file, fieldnames=ALL_JOURNAL_KEYS)
+    transaction_paths = [Path(p) for pattern in transaction_globs for p in glob.glob(pattern)]
+    transactions = load_transactions(transaction_paths)
+
+    fieldnames = list(ALL_JOURNAL_KEYS)
+    if transactions:
+        extra_keys = {key for tx in transactions.values() for key in tx if key not in fieldnames}
+        fieldnames.extend(sorted(extra_keys))
+
+    csv_writer = csv.DictWriter(output_file, fieldnames=fieldnames)
     csv_writer.writeheader()
     for row in flatten(journal_stream(paths)):
+        tx_id = row.get('SourceID')
+        if tx_id and tx_id in transactions:
+            tx_data = transactions[tx_id]
+            for key, value in tx_data.items():
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value)
+                row[key] = value
+        elif tx_id:
+            logging.warning(
+                'No transaction found for SourceID %s (%s)',
+                tx_id,
+                row.get('SourceType'),
+            )
         csv_writer.writerow(row)

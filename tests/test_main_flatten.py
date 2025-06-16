@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from textwrap import dedent
-from testfixtures import compare
+from testfixtures import compare, Replacer
+from unittest.mock import Mock
+import logging
 
 from xerotrust.flatten import ALL_JOURNAL_KEYS
 from .helpers import run_cli
@@ -18,6 +20,19 @@ class TestFlatten:
         expected_lines = [','.join(ALL_JOURNAL_KEYS)]
         for row in expected:
             expected_lines.append(','.join(str(row.get(k, '')) for k in ALL_JOURNAL_KEYS))
+        compare(output, expected='\n'.join(expected_lines) + '\n')
+
+    def check_output_with_extras(self, output: str, *, expected: Sequence[dict[str, Any]]) -> None:
+        fieldnames = list(ALL_JOURNAL_KEYS)
+        extra_keys: set[str] = set()
+        for row in expected:
+            extra_keys.update(row.keys())
+        extra_keys.difference_update(fieldnames)
+        fieldnames.extend(sorted(extra_keys))
+
+        expected_lines = [','.join(fieldnames)]
+        for row in expected:
+            expected_lines.append(','.join(str(row.get(k, '')) for k in fieldnames))
         compare(output, expected='\n'.join(expected_lines) + '\n')
 
     def test_flatten_single_file(self, tmp_path: Path) -> None:
@@ -203,3 +218,96 @@ class TestFlatten:
             }
         ]
         self.check_output(result.output, expected=expected_rows)
+
+    def test_flatten_with_transactions(self, tmp_path: Path) -> None:
+        journal_file = tmp_path / "journals.jsonl"
+        tx_file = tmp_path / "transactions.jsonl"
+        journals_data = [
+            {
+                "JournalID": "j1",
+                "JournalNumber": 1,
+                "JournalLines": [
+                    {
+                        "JournalLineID": "jl1",
+                        "SourceID": "bt1",
+                        "SourceType": "BANKTRANSACTION",
+                    }
+                ],
+            }
+        ]
+        self.write_journal_file(journal_file, journals_data)
+        tx_file.write_text(
+            json.dumps(
+                {
+                    "BankTransactionID": "bt1",
+                    "Date": "2023-03-15T00:00:00+00:00",
+                    "DateString": "2023-03-15T00:00:00",
+                    "UpdatedDateUTC": "2023-03-15T00:00:00+00:00",
+                    "Total": 100.0,
+                    "Type": "SPEND",
+                    "BankAccount": {"Name": "Test Account"},
+                }
+            )
+            + "\n"
+        )
+
+        result = run_cli(
+            tmp_path,
+            "flatten",
+            str(journal_file),
+            "--transactions",
+            str(tx_file),
+        )
+
+        expected_rows = [
+            {
+                "JournalID": "j1",
+                "JournalNumber": 1,
+                "JournalLineID": "jl1",
+                "SourceID": "bt1",
+                "SourceType": "BANKTRANSACTION",
+                "BankAccount": '"{""Name"": ""Test Account""}"',
+                "BankTransactionID": "bt1",
+                "Date": "2023-03-15T00:00:00+00:00",
+                "DateString": "2023-03-15T00:00:00",
+                "Total": 100.0,
+                "Type": "SPEND",
+                "UpdatedDateUTC": "2023-03-15T00:00:00+00:00",
+            }
+        ]
+        self.check_output_with_extras(result.output, expected=expected_rows)
+
+    def test_flatten_missing_transaction_logs_warning(self, tmp_path: Path) -> None:
+        journal_file = tmp_path / "journals.jsonl"
+        self.write_journal_file(
+            journal_file,
+            [
+                {
+                    "JournalID": "j1",
+                    "JournalNumber": 1,
+                    "JournalLines": [
+                        {
+                            "JournalLineID": "jl1",
+                            "SourceID": "bt-missing",
+                            "SourceType": "BANKTRANSACTION",
+                        }
+                    ],
+                }
+            ],
+        )
+        tx_file = tmp_path / "transactions.jsonl"
+        tx_file.write_text("")
+
+        with Replacer() as replace:
+            mock_warning = Mock()
+            replace.in_module(logging.warning, mock_warning, module=logging)
+            run_cli(
+                tmp_path,
+                "flatten",
+                str(journal_file),
+                "--transactions",
+                str(tx_file),
+            )
+            mock_warning.assert_called_once()
+            compare(mock_warning.call_args.args[1], expected="bt-missing")
+            compare(mock_warning.call_args.args[2], expected="BANKTRANSACTION")

@@ -1,5 +1,6 @@
 import json
-from typing import Iterator, Any
+from pathlib import Path
+from typing import Iterator, Any, Iterable
 
 ALL_JOURNAL_KEYS = [
     'JournalID',
@@ -34,3 +35,13 @@ def flatten(rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
                     value = json.dumps(value)
                 full_journal_row[key] = value
             yield full_journal_row
+
+
+def load_transactions(paths: Iterable[Path]) -> dict[str, dict[str, Any]]:
+    transactions: dict[str, dict[str, Any]] = {}
+    for path in paths:
+        with path.open() as source:
+            for line in source:
+                row = json.loads(line)
+                transactions[row['BankTransactionID']] = row
+    return transactions
