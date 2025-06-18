@@ -183,8 +183,9 @@ class BankTransactionsExport(Export):
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
         self.latest = latest
+        original_latest = cast(datetime, latest['UpdatedDateUTC']) if latest is not None else None
         for item in self._raw_items(manager, latest):
-            if self.latest is not None and item['UpdatedDateUTC'] <= self.latest['UpdatedDateUTC']:
+            if original_latest is not None and item['UpdatedDateUTC'] <= original_latest:
                 continue
 
             if self.latest is None:

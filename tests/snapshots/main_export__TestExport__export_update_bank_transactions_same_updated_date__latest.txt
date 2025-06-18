@@ -1,0 +1,5 @@
+{
+  "BankTransactions": {
+    "UpdatedDateUTC": "2023-03-19T00:00:00+00:00"
+  }
+}

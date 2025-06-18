@@ -1037,3 +1037,76 @@ class TestExport:
                 'Tenant 1/latest.json': snapshot,
             }
         )
+
+    def test_export_update_bank_transactions_same_updated_date(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        self.write_json(
+            tenant_path / 'latest.json',
+            {"BankTransactions": {"UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}},
+        )
+        self.write_json(
+            tenant_path / 'transactions-2023-03.jsonl',
+            {
+                'BankTransactionID': 'bt1',
+                'Date': '2023-03-15T00:00:00+00:00',
+                'UpdatedDateUTC': '2023-03-15T00:00:00+00:00',
+                'Total': 100.0,
+                'Type': 'SPEND',
+                'BankAccount': {'Name': 'Test Account'},
+            },
+        )
+
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Wed, 15 Mar 2023 00:00:00 GMT',
+            },
+            params={'page': '1', 'pageSize': '1000'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt2',
+                        'Date': '/Date(1678924800000+0000)/',
+                        'UpdatedDateUTC': '/Date(1679184000000+0000)/',
+                        'Total': 200.0,
+                        'Type': 'RECEIVE',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                    {
+                        'BankTransactionID': 'bt3',
+                        'Date': '/Date(1679011200000+0000)/',
+                        'UpdatedDateUTC': '/Date(1679184000000+0000)/',
+                        'Total': 300.0,
+                        'Type': 'SPEND',
+                        'BankAccount': {'Name': 'Test Account'},
+                    },
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={
+                'Xero-Tenant-Id': 't1',
+                'If-Modified-Since': 'Sun, 19 Mar 2023 00:00:00 GMT',
+            },
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'banktransactions')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/transactions-2023-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
