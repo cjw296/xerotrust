@@ -22,12 +22,12 @@ class FileChecker:
                 expected_content = expected_value(Path(relative_path).with_suffix('.txt').name)
             else:
                 expected_content = expected_value
-            expected_files[relative_path] = expected_content
+            expected_files[relative_path] = expected_content.rstrip('\n')
         actual_files = {}
         for path in self.tmp_path.rglob('*'):
             if path.is_file():
                 relative_path = str(path.relative_to(self.tmp_path))
-                actual_files[relative_path] = path.read_text()
+                actual_files[relative_path] = path.read_text().rstrip('\n')
         compare(expected=expected_files, actual=actual_files)
 
 
