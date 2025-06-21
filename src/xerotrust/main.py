@@ -2,19 +2,24 @@ import csv
 import json
 import logging
 import time
-from collections import deque
+from collections import deque, defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
 import click
 import enlighten
+from rich import box
+from rich.console import Console
+from rich.table import Table
 from xero import Xero
-from xerotrust.jsonl import jsonl_stream
 
+from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
 from .flatten import flatten, ALL_JOURNAL_KEYS
+from .reconcile import RECONCILERS, AccountTotals
 from .transform import TRANSFORMERS, show
 
 
@@ -309,3 +314,113 @@ def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) 
     csv_writer.writeheader()
     for row in flatten(jsonl_stream(paths)):
         csv_writer.writerow(row)
+
+
+class KeyValueType(click.ParamType):
+    name = 'key=value'
+
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context | None
+    ) -> list[str]:
+        if '=' not in value:
+            self.fail(f"Expected key=value format, got: {value}", param, ctx)
+        return value.split('=', 1)
+
+
+@cli.command()
+@click.argument('sources', nargs=-1, type=KeyValueType())
+@click.option(
+    '-s', '--stop-on-diff', is_flag=True, help='Stop on the first date a difference is found'
+)
+def reconcile(
+    sources: tuple[tuple[str, str], ...],
+    stop_on_diff: bool,
+) -> None:
+    """
+    Run reconciliation on exported data.
+
+    Sources are specified as {endpoint}={path glob}, eg: journals=journal*.jsonl
+    Exactly two sources must be specified.
+    """
+    if len(sources) != 2:
+        raise click.ClickException(f'Exactly two sources must be specified, got: {sources}')
+
+    # First validate all endpoints
+    for endpoint, _ in sources:
+        if endpoint.lower() not in RECONCILERS:
+            raise click.ClickException(
+                f'Unsupported endpoint: {endpoint}. '
+                f'Supported endpoints: {", ".join(RECONCILERS.keys())}'
+            )
+
+    source_date_totals: list[defaultdict[date, AccountTotals]] = []
+    source_account_totals: list[AccountTotals] = []
+    endpoints = []
+    for endpoint, glob in sources:
+        reconciler = RECONCILERS[endpoint.lower()]
+        date_totals = defaultdict[date, AccountTotals](AccountTotals)
+        account_totals = AccountTotals()
+        for item in jsonl_stream([glob]):
+            for change in reconciler.parse(item):
+                date_totals[reconciler.date(item)].add(change)
+                account_totals.add(change)
+        source_date_totals.append(date_totals)
+        source_account_totals.append(account_totals)
+        endpoints.append(endpoint)
+
+    a_data, b_data = source_date_totals
+
+    # compare and stop on the first date where a difference is found:
+    diff_dates = set()
+    for date_key in sorted(set(a_data) | set(b_data)):
+        a_totals = a_data[date_key]
+        b_totals = b_data[date_key]
+        all_keys = set(a_totals.keys()) | set(b_totals.keys())
+        for key in all_keys:
+            a_total = a_totals.get(key)
+            b_total = b_totals.get(key)
+            if a_total.total != b_total.total:
+                diff_dates.add(date_key)
+                if stop_on_diff:
+                    break
+        if stop_on_diff and diff_dates:
+            break
+    else:
+        a_totals, b_totals = source_account_totals
+
+    console = Console()
+    differences = []
+    all_keys = set(a_totals) | set(b_totals)
+    for key in all_keys:
+        a_total = a_totals.get(key)
+        b_total = b_totals.get(key)
+        if a_total.total != b_total.total or not stop_on_diff:
+            differences.append(
+                (
+                    a_total.code or b_total.code or '',
+                    a_total.name or b_total.name,
+                    a_total.type or b_total.type,
+                    f"{a_total.total:,}",
+                    f"{b_total.total:,}",
+                    f"{a_total.total - b_total.total:,}",
+                )
+            )
+
+    table = Table(box=box.ROUNDED)
+    table.add_column("code")
+    table.add_column("name")
+    table.add_column("type")
+    table.add_column(endpoints[0], justify="right")
+    table.add_column(endpoints[1], justify="right")
+    table.add_column("Difference", justify="right")
+
+    for row in sorted(differences, key=lambda x: x[:2]):
+        table.add_row(*row)
+    console.print(table)
+
+    if diff_dates:
+        dates_text = ', '.join(str(d) for d in sorted(diff_dates))
+        message = f"[red]✗ Differences found on date(s): {dates_text}[/red]"
+    else:
+        message = "[green]✓ All dates reconcile successfully[/green]"
+    console.print(message)
