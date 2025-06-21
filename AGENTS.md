@@ -24,6 +24,7 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Comprehensive error handling with context
 - Testing: pytest with fixtures
 - Testing: Do not use assert in unit tests when comparing two values, always use textfixtures.compare
+- Testing: When using pytest-insta SnapshotFixture, always call snapshot() as a function, not just snapshot. Use: compare(actual, expected=snapshot())
 - Testing: Maintain 100% test coverage for all code
 - Docstrings with clear parameter descriptions
 - Automated formatting with ruff
