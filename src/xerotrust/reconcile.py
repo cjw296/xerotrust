@@ -2,22 +2,33 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
+from rich.console import Console
+from rich.table import Table
+
 
 def _journal_totals(
     journals: Iterable[dict[str, Any]],
-) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
-    net_totals: dict[str, Decimal] = defaultdict(Decimal)
-    gross_totals: dict[str, Decimal] = defaultdict(Decimal)
+) -> dict[str, dict[str, Any]]:
+    totals: dict[str, dict[str, Any]] = {}
     for journal in journals:
         for line in journal.get("JournalLines", []):
-            account = line.get("AccountName")
-            if account is None:
+            account_name = line.get("AccountName")
+            if account_name is None:
                 continue
-            net = line.get("NetAmount", 0)
-            gross = line.get("GrossAmount", 0)
-            net_totals[account] += Decimal(str(net))
-            gross_totals[account] += Decimal(str(gross))
-    return dict(net_totals), dict(gross_totals)
+            account_code = line.get("AccountCode") or ""
+            net = Decimal(str(line.get("NetAmount", 0)))
+            gross = Decimal(str(line.get("GrossAmount", 0)))
+
+            account_data = totals.setdefault(
+                account_name,
+                {"code": account_code, "net": Decimal(), "gross": Decimal()},
+            )
+            # Preserve the first code encountered
+            if not account_data.get("code") and account_code:
+                account_data["code"] = account_code
+            account_data["net"] += net
+            account_data["gross"] += gross
+    return totals
 
 
 def _transaction_totals(transactions: Iterable[dict[str, Any]]) -> dict[str, Decimal]:
@@ -26,31 +37,44 @@ def _transaction_totals(transactions: Iterable[dict[str, Any]]) -> dict[str, Dec
         account = (transaction.get("BankAccount") or {}).get("Name")
         if account is None:
             continue
-        amount = transaction.get("Total", 0)
-        totals[account] += Decimal(str(amount))
-    return dict(totals)
+        amount = Decimal(str(transaction.get("Total", 0)))
+        totals[account] += amount
+    return totals
 
 
 def reconcile_journals_transactions(
     journals: Iterable[dict[str, Any]], transactions: Iterable[dict[str, Any]]
 ) -> None:
-    journal_net_totals, journal_gross_totals = _journal_totals(journals)
+    journal_totals = _journal_totals(journals)
     transaction_totals = _transaction_totals(transactions)
 
-    mismatches = []
-    all_accounts = set(journal_net_totals) | set(journal_gross_totals) | set(transaction_totals)
-    for account in sorted(all_accounts):
-        j_net = journal_net_totals.get(account, Decimal())
-        j_gross = journal_gross_totals.get(account, Decimal())
-        t_total = transaction_totals.get(account, Decimal())
-        print(f"{account}: net {j_net} -> {t_total}, gross {j_gross} -> {t_total}")
-        if j_net != t_total:
-            mismatches.append(ValueError(f"net {account}: {j_net} != {t_total}"))
-        if j_gross != t_total:
-            mismatches.append(ValueError(f"gross {account}: {j_gross} != {t_total}"))
+    all_accounts = set(journal_totals) | set(transaction_totals)
 
-    if mismatches:
-        raise ExceptionGroup("Reconciliation errors", mismatches)
+    table = Table(
+        "AccountName",
+        "AccountCode",
+        "Gross",
+        "Net",
+        "Transaction",
+        "Difference",
+        box=None,
+    )
+
+    for account in sorted(all_accounts):
+        j_data = journal_totals.get(account, {"code": "", "net": Decimal(), "gross": Decimal()})
+        t_total = transaction_totals.get(account, Decimal())
+        diff = t_total - j_data["net"]
+
+        table.add_row(
+            account,
+            str(j_data.get("code", "")),
+            str(j_data["gross"]),
+            str(j_data["net"]),
+            str(t_total),
+            str(diff),
+        )
+
+    Console().print(table)
 
 
 RECONCILERS = {"journals-transactions": reconcile_journals_transactions}
