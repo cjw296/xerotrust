@@ -1,12 +1,13 @@
 from collections import defaultdict
-from typing import Iterable, Any
+from decimal import Decimal
+from typing import Any, Iterable
 
 
 def _journal_totals(
     journals: Iterable[dict[str, Any]],
-) -> tuple[dict[str, float], dict[str, float]]:
-    net_totals: dict[str, float] = defaultdict(float)
-    gross_totals: dict[str, float] = defaultdict(float)
+) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+    net_totals: dict[str, Decimal] = defaultdict(Decimal)
+    gross_totals: dict[str, Decimal] = defaultdict(Decimal)
     for journal in journals:
         for line in journal.get("JournalLines", []):
             account = line.get("AccountName")
@@ -14,19 +15,19 @@ def _journal_totals(
                 continue
             net = line.get("NetAmount", 0)
             gross = line.get("GrossAmount", 0)
-            net_totals[account] += float(net)
-            gross_totals[account] += float(gross)
+            net_totals[account] += Decimal(str(net))
+            gross_totals[account] += Decimal(str(gross))
     return dict(net_totals), dict(gross_totals)
 
 
-def _transaction_totals(transactions: Iterable[dict[str, Any]]) -> dict[str, float]:
-    totals: dict[str, float] = defaultdict(float)
+def _transaction_totals(transactions: Iterable[dict[str, Any]]) -> dict[str, Decimal]:
+    totals: dict[str, Decimal] = defaultdict(Decimal)
     for transaction in transactions:
         account = (transaction.get("BankAccount") or {}).get("Name")
         if account is None:
             continue
         amount = transaction.get("Total", 0)
-        totals[account] += float(amount)
+        totals[account] += Decimal(str(amount))
     return dict(totals)
 
 
@@ -39,9 +40,9 @@ def reconcile_journals_transactions(
     mismatches = []
     all_accounts = set(journal_net_totals) | set(journal_gross_totals) | set(transaction_totals)
     for account in sorted(all_accounts):
-        j_net = journal_net_totals.get(account, 0.0)
-        j_gross = journal_gross_totals.get(account, 0.0)
-        t_total = transaction_totals.get(account, 0.0)
+        j_net = journal_net_totals.get(account, Decimal())
+        j_gross = journal_gross_totals.get(account, Decimal())
+        t_total = transaction_totals.get(account, Decimal())
         print(f"{account}: net {j_net} -> {t_total}, gross {j_gross} -> {t_total}")
         if j_net != t_total:
             mismatches.append(ValueError(f"net {account}: {j_net} != {t_total}"))
