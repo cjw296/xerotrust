@@ -14,6 +14,7 @@ from .authentication import authenticate, credentials_from_file
 from .check import show_summary, CHECKERS, jsonl_stream
 from .export import EXPORTS, FileManager, Split, LatestData
 from .flatten import flatten, ALL_JOURNAL_KEYS
+from .reconcile import RECONCILERS
 from .transform import TRANSFORMERS, show
 
 
@@ -308,3 +309,37 @@ def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) 
     csv_writer.writeheader()
     for row in flatten(jsonl_stream(paths)):
         csv_writer.writerow(row)
+
+
+@cli.command()
+@click.argument(
+    'reconciliation',
+    type=click.Choice(list(RECONCILERS.keys()), case_sensitive=False),
+)
+@click.argument(
+    'paths',
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    nargs=-1,
+    required=True,
+)
+@click.option(
+    '--transactions',
+    'transaction_paths',
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    multiple=True,
+    required=True,
+)
+def reconcile(
+    reconciliation: str,
+    paths: tuple[Path, ...],
+    transaction_paths: tuple[Path, ...],
+) -> None:
+    """Run reconciliation checks on exported data."""
+
+    reconciliation_lower = reconciliation.lower()
+    if reconciliation_lower not in RECONCILERS:
+        raise click.ClickException(f'Unsupported reconciliation: {reconciliation}')
+
+    journals = jsonl_stream(paths)
+    transactions = jsonl_stream(transaction_paths)
+    RECONCILERS[reconciliation_lower](journals, transactions)
