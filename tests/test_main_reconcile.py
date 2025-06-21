@@ -19,12 +19,12 @@ class TestReconcile:
         journals: list[dict[str, Any]] = [
             {
                 "JournalLines": [
-                    {"AccountName": "Bank", "NetAmount": 100.0},
-                    {"AccountName": "Cash", "NetAmount": 50.0},
-                    {"NetAmount": 10.0},
+                    {"AccountName": "Bank", "NetAmount": 100.0, "GrossAmount": 100.0},
+                    {"AccountName": "Cash", "NetAmount": 50.0, "GrossAmount": 50.0},
+                    {"NetAmount": 10.0, "GrossAmount": 10.0},
                 ]
             },
-            {"JournalLines": [{"AccountName": "Bank", "NetAmount": 50.0}]},
+            {"JournalLines": [{"AccountName": "Bank", "NetAmount": 50.0, "GrossAmount": 50.0}]},
         ]
         transactions: list[dict[str, Any]] = [
             {"BankAccount": {"Name": "Bank"}, "Total": 150.0},
@@ -46,14 +46,19 @@ class TestReconcile:
 
         compare(
             result.output,
-            expected="Bank: 150.0 -> 150.0\nCash: 50.0 -> 50.0\n",
+            expected=(
+                "Bank: net 150.0 -> 150.0, gross 150.0 -> 150.0\n"
+                "Cash: net 50.0 -> 50.0, gross 50.0 -> 50.0\n"
+            ),
         )
 
     def test_reconcile_mismatch(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals.jsonl"
         transaction_file = tmp_path / "transactions.jsonl"
 
-        journals = [{"JournalLines": [{"AccountName": "Bank", "NetAmount": 100.0}]}]
+        journals = [
+            {"JournalLines": [{"AccountName": "Bank", "NetAmount": 100.0, "GrossAmount": 100.0}]}
+        ]
         transactions = [{"BankAccount": {"Name": "Bank"}, "Total": 50.0}]
 
         self.write_file(journal_file, journals)
@@ -62,7 +67,10 @@ class TestReconcile:
         with ShouldRaise(
             ExceptionGroup(
                 "Reconciliation errors",
-                (ValueError("Bank: 100.0 != 50.0"),),
+                (
+                    ValueError("net Bank: 100.0 != 50.0"),
+                    ValueError("gross Bank: 100.0 != 50.0"),
+                ),
             )
         ):
             run_cli(
