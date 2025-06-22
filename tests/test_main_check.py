@@ -1,22 +1,12 @@
-import json
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
 
 from testfixtures import ShouldRaise, compare
 
-from .helpers import run_cli
+from .helpers import run_cli, write_jsonl_file
 
 
 class TestCheck:
-    def write_journal_file(self, path: Path, journals: list[dict[str, Any]]) -> None:
-        """Helper to write a JSON Lines file."""
-        path.write_text('\n'.join(json.dumps(j) for j in journals) + '\n')
-
-    def write_transaction_file(self, path: Path, transactions: list[dict[str, Any]]) -> None:
-        """Helper to write a JSON Lines file for transactions."""
-        path.write_text('\n'.join(json.dumps(t) for t in transactions) + '\n')
-
     def test_check_success_single_file(self, tmp_path: Path) -> None:
         journal_file = tmp_path / "journals.jsonl"
         journals_data = [
@@ -39,7 +29,7 @@ class TestCheck:
                 "CreatedDateUTC": "2025-01-17T12:00:00Z",
             },
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'check', 'journals', str(journal_file))
 
@@ -78,8 +68,8 @@ class TestCheck:
                 "CreatedDateUTC": "2025-01-16T11:00:00Z",
             }
         ]
-        self.write_journal_file(file1, journals1)
-        self.write_journal_file(file2, journals2)
+        write_jsonl_file(file1, journals1)
+        write_jsonl_file(file2, journals2)
 
         result = run_cli(tmp_path, 'check', 'journals', str(file1), str(file2))
 
@@ -99,7 +89,7 @@ class TestCheck:
             {"JournalID": "j1", "JournalNumber": 1},
             {"JournalID": "j1", "JournalNumber": 2},
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         with ShouldRaise(
             ExceptionGroup(
@@ -115,7 +105,7 @@ class TestCheck:
             {"JournalID": "j1", "JournalNumber": 1},
             {"JournalID": "j2", "JournalNumber": 1},
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         with ShouldRaise(
             ExceptionGroup(
@@ -131,7 +121,7 @@ class TestCheck:
             {"JournalID": "j1", "JournalNumber": 1},
             {"JournalID": "j3", "JournalNumber": 3},
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         with ShouldRaise(
             ExceptionGroup(
@@ -147,7 +137,7 @@ class TestCheck:
             {"JournalID": "j1", "JournalNumber": 1},
             {"JournalID": "j5", "JournalNumber": 5},
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         with ShouldRaise(
             ExceptionGroup(
@@ -165,7 +155,7 @@ class TestCheck:
             {"JournalID": "j3", "JournalNumber": 2},  # Duplicate Number
             {"JournalID": "j5", "JournalNumber": 5},  # Missing 4
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         # Errors are sorted alphabetically by message in check_journals before raising
         with ShouldRaise(
@@ -205,7 +195,7 @@ class TestCheck:
                 "CreatedDateUTC": "2025-01-15T10:00:00Z",
             }
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'check', 'journals', str(journal_file))
         compare(
@@ -245,7 +235,7 @@ class TestCheck:
                 "Total": 75.0,
             },
         ]
-        self.write_transaction_file(transaction_file, transactions_data)
+        write_jsonl_file(transaction_file, transactions_data)
 
         result = run_cli(tmp_path, 'check', 'transactions', str(transaction_file))
 
@@ -263,7 +253,7 @@ class TestCheck:
             {"BankTransactionID": "t1", "Date": "2022-01-04T00:00:00+00:00"},
             {"BankTransactionID": "t1", "Date": "2022-01-05T00:00:00+00:00"},
         ]
-        self.write_transaction_file(transaction_file, transactions_data)
+        write_jsonl_file(transaction_file, transactions_data)
 
         with ShouldRaise(
             ExceptionGroup(

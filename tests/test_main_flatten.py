@@ -1,19 +1,14 @@
-import json
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Sequence
 
-from textwrap import dedent
 from testfixtures import compare
-
 from xerotrust.flatten import ALL_JOURNAL_KEYS
-from .helpers import run_cli
+
+from .helpers import run_cli, write_jsonl_file
 
 
 class TestFlatten:
-    def write_journal_file(self, path: Path, journals: list[dict[str, Any]]) -> None:
-        """Helper to write a JSON Lines file."""
-        path.write_text('\n'.join(json.dumps(j) for j in journals) + '\n')
-
     def check_output(self, output: str, *, expected: Sequence[dict[str, Any]]) -> None:
         expected_lines = [','.join(ALL_JOURNAL_KEYS)]
         for row in expected:
@@ -41,7 +36,7 @@ class TestFlatten:
                 ],
             },
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'flatten', str(journal_file))
 
@@ -72,8 +67,8 @@ class TestFlatten:
                 "JournalLines": [{"JournalLineID": "jl2a"}],
             }
         ]
-        self.write_journal_file(file1, journals_data1)
-        self.write_journal_file(file2, journals_data2)
+        write_jsonl_file(file1, journals_data1)
+        write_jsonl_file(file2, journals_data2)
 
         result = run_cli(tmp_path, 'flatten', str(file1), str(file2))
 
@@ -97,7 +92,7 @@ class TestFlatten:
             {"JournalID": "j1", "JournalNumber": 1, "JournalLines": []},
             {"JournalID": "j2", "JournalNumber": 2},  # JournalLines key missing
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'flatten', str(journal_file))
 
@@ -123,7 +118,7 @@ class TestFlatten:
                 "JournalLines": [{"JournalLineID": "jl4a", "AccountCode": "400"}],
             },
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'flatten', str(journal_file))
 
@@ -153,7 +148,7 @@ class TestFlatten:
                 "JournalLines": [{"JournalLineID": "jl1a", "AccountCode": "100"}],
             }
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         run_cli(
             tmp_path,
@@ -186,7 +181,7 @@ class TestFlatten:
                 ],
             }
         ]
-        self.write_journal_file(journal_file, journals_data)
+        write_jsonl_file(journal_file, journals_data)
 
         result = run_cli(tmp_path, 'flatten', str(journal_file))
 

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -62,3 +63,7 @@ def add_tenants_response(pook: Any, tenants: list[dict[str, str]] | None = None)
         # id and tenantID are not the same here, we need to use tenantId
         response_json=tenants or [{"id": "bad", "tenantId": "t1", "tenantName": "Tenant 1"}],
     )
+
+
+def write_jsonl_file(path: Path, lines: list[dict[str, Any]]) -> None:
+    path.write_text('\n'.join(json.dumps(j) for j in lines) + '\n')
