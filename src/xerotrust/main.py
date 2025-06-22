@@ -9,9 +9,10 @@ from typing import Any, Iterable
 import click
 import enlighten
 from xero import Xero
+from xerotrust.jsonl import jsonl_stream
 
 from .authentication import authenticate, credentials_from_file
-from .check import show_summary, CHECKERS, jsonl_stream
+from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
 from .flatten import flatten, ALL_JOURNAL_KEYS
 from .transform import TRANSFORMERS, show
