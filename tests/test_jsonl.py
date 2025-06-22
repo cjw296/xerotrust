@@ -1,4 +1,5 @@
 from contextlib import chdir
+from decimal import Decimal
 from pathlib import Path
 
 from testfixtures import compare, generator
@@ -30,3 +31,9 @@ def test_non_relative(tmp_path: Path) -> None:
     a1.write_text('"A1"')
     a2.write_text('"A2"')
     compare(jsonl_stream([str(tmp_path / 'a*.jsonl')]), expected=generator('A1', 'A2'))
+
+
+def test_decimal(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.jsonl"
+    sample.write_text('{"Total": 1.23}')
+    compare(jsonl_stream([sample]), expected=generator({"Total": Decimal('1.23')}), strict=True)

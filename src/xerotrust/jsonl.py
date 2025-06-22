@@ -5,6 +5,7 @@ from typing import Iterable, Any
 
 
 def jsonl_stream(paths_or_globs: Iterable[Path | str]) -> Iterable[dict[str, Any]]:
+    paths: Iterable[Path]
     for path_or_glob in paths_or_globs:
         if isinstance(path_or_glob, Path):
             paths = [path_or_glob]
@@ -17,4 +18,4 @@ def jsonl_stream(paths_or_globs: Iterable[Path | str]) -> Iterable[dict[str, Any
         for path in sorted(paths):
             with path.open() as source:
                 for line in source:
-                    yield json.loads(line)
+                    yield json.loads(line, parse_float=Decimal)
