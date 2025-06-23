@@ -43,7 +43,7 @@ class TestFlatten:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'flatten', str(journal_file))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(journal_file))
 
         # We don't use check_output here so we can see what the raw csv looks like,
         header = ','.join(ALL_JOURNAL_KEYS)
@@ -75,7 +75,7 @@ class TestFlatten:
         self.write_journal_file(file1, journals_data1)
         self.write_journal_file(file2, journals_data2)
 
-        result = run_cli(tmp_path, 'flatten', str(file1), str(file2))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(file1), str(file2))
 
         expected_rows = [
             {'JournalID': 'j1', 'JournalNumber': 1, 'JournalLineID': 'jl1a'},
@@ -87,7 +87,7 @@ class TestFlatten:
         empty_file = tmp_path / "empty.jsonl"
         empty_file.touch()
 
-        result = run_cli(tmp_path, 'flatten', str(empty_file))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(empty_file))
 
         self.check_output(result.output, expected=[])
 
@@ -99,7 +99,7 @@ class TestFlatten:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'flatten', str(journal_file))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(journal_file))
 
         self.check_output(result.output, expected=[])
 
@@ -125,7 +125,7 @@ class TestFlatten:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'flatten', str(journal_file))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(journal_file))
 
         expected_rows = [
             {
@@ -158,6 +158,7 @@ class TestFlatten:
         run_cli(
             tmp_path,
             'flatten',
+            'journals',
             str(journal_file),
             '--output',
             str(output_csv_file),
@@ -188,7 +189,7 @@ class TestFlatten:
         ]
         self.write_journal_file(journal_file, journals_data)
 
-        result = run_cli(tmp_path, 'flatten', str(journal_file))
+        result = run_cli(tmp_path, 'flatten', 'journals', str(journal_file))
 
         expected_rows = [
             {

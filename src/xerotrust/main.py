@@ -13,7 +13,7 @@ from xero import Xero
 from .authentication import authenticate, credentials_from_file
 from .check import show_summary, CHECKERS, jsonl_stream
 from .export import EXPORTS, FileManager, Split, LatestData
-from .flatten import flatten, ALL_JOURNAL_KEYS
+from .flatten import FLATTENERS, ALL_JOURNAL_KEYS
 from .transform import TRANSFORMERS, show
 
 
@@ -281,6 +281,10 @@ def check(endpoint: str, paths: tuple[Path, ...]) -> None:
 
 @cli.command('flatten')
 @click.argument(
+    'endpoint',
+    type=click.Choice(list(FLATTENERS.keys()), case_sensitive=False),
+)
+@click.argument(
     'paths',
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
     nargs=-1,
@@ -294,7 +298,9 @@ def check(endpoint: str, paths: tuple[Path, ...]) -> None:
     default='-',
     help='Output file path. Defaults to stdout.',
 )
-def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) -> None:
+def flatten_command(
+    endpoint: str, paths: tuple[Path, ...], output_file: click.utils.LazyFile
+) -> None:
     """
     Flatten journal entries, augmenting them with transaction data if requested, into CSV format.
 
@@ -306,5 +312,6 @@ def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) 
     # We'll let the csv.DictWriter handle the file object.
     csv_writer = csv.DictWriter(output_file, fieldnames=ALL_JOURNAL_KEYS)
     csv_writer.writeheader()
-    for row in flatten(jsonl_stream(paths)):
+    flattener = FLATTENERS[endpoint]
+    for row in flattener(jsonl_stream(paths)):
         csv_writer.writerow(row)

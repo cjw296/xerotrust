@@ -24,7 +24,7 @@ ALL_JOURNAL_KEYS = [
 ]
 
 
-def flatten(rows: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+def flatten_journals(rows: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
     for journal in rows:
         journal_lines = journal.pop('JournalLines', [])
         for journal_line in journal_lines:
@@ -34,3 +34,8 @@ def flatten(rows: Iterable[dict[str, Any]]) -> Iterable[dict[str, Any]]:
                     value = json.dumps(value)
                 full_journal_row[key] = value
             yield full_journal_row
+
+
+FLATTENERS = {
+    'Journals': flatten_journals,
+}
