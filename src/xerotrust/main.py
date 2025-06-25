@@ -18,7 +18,6 @@ from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
-from .flatten import flatten, ALL_JOURNAL_KEYS
 from .reconcile import RECONCILERS, AccountTotals
 from .transform import TRANSFORMERS, show
 
@@ -283,37 +282,6 @@ def check(endpoint: str, paths: tuple[Path, ...]) -> None:
 
     # Consume the final stream to run the checks:
     deque(stream, maxlen=0)
-
-
-@cli.command('flatten')
-@click.argument(
-    'paths',
-    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
-    nargs=-1,
-    required=True,
-)
-@click.option(
-    '-o',
-    '--output',
-    'output_file',
-    type=click.File('w'),
-    default='-',
-    help='Output file path. Defaults to stdout.',
-)
-def flatten_command(paths: tuple[Path, ...], output_file: click.utils.LazyFile) -> None:
-    """
-    Flatten journal entries, augmenting them with transaction data if requested, into CSV format.
-
-    Each JournalLine within a Journal becomes a row in the CSV, combined with data from its parent
-    Journal and any supplied transactions.
-    """
-    # The type hint for output_file from click.File('w') is IO[str],
-    # but click.utils.LazyFile is what's actually passed at runtime before it's opened.
-    # We'll let the csv.DictWriter handle the file object.
-    csv_writer = csv.DictWriter(output_file, fieldnames=ALL_JOURNAL_KEYS)
-    csv_writer.writeheader()
-    for row in flatten(jsonl_stream(paths)):
-        csv_writer.writerow(row)
 
 
 class KeyValueType(click.ParamType):

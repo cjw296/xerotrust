@@ -5,7 +5,6 @@ import click
 from pytest_insta import SnapshotFixture
 from testfixtures import ShouldRaise, compare
 
-from xerotrust.flatten import ALL_JOURNAL_KEYS
 from .helpers import run_cli, write_jsonl_file
 
 SAMPLE_JOURNAL = {
