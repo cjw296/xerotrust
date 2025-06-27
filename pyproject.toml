@@ -1,6 +1,6 @@
 [project]
 name = "xerotrust"
-version = "0.2.0"
+version = "1.0.0"
 description = "Export and explore data from Xero accounts."
 readme = "README.rst"
 authors = [
