@@ -19,6 +19,11 @@ dependencies = [
     "rich>=13.7",
 ]
 
+[project.urls]
+"Homepage" = "https://xerotrust.readthedocs.io/"
+"Documentation" = "https://xerotrust.readthedocs.io/"
+"Repository" = "https://github.com/cjw296/xerotrust"
+
 [project.scripts]
 xerotrust = "xerotrust.main:cli"
 
