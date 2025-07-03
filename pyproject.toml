@@ -44,7 +44,7 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
     "pytest-insta>=0.3.0",
-    "testfixtures>=8.3.0",
+    "testfixtures>=9.0.1",
     "types-python-dateutil>=2.9.0.20250516",
 ]
 
@@ -63,7 +63,6 @@ module = [
     "pook",
     "oauthlib.*",
     "requests_oauthlib",
-    "testfixtures.*",
     "xero.*",
     "enlighten.*",
 ]
