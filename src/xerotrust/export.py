@@ -107,7 +107,7 @@ def retry_on_rate_limit[T, **P](
 
 @dataclass
 class Export:
-    latest_fields: ClassVar[tuple[str, ...]] = ('UpdatedDateUTC',)
+    latest_fields: ClassVar[tuple[str, ...]] = 'CreatedDateUTC', 'UpdatedDateUTC'
     supports_update: ClassVar[bool] = False
 
     file_name: str | None = None
@@ -128,11 +128,16 @@ class Export:
         self.latest = latest
         for item in self._raw_items(manager, latest):
             if self.latest is None:
-                self.latest = {f: item[f] for f in self.latest_fields}
+                self.latest = {}
+                for f in self.latest_fields:
+                    latest_value = item.get(f)
+                    if latest_value is not None:
+                        self.latest[f] = latest_value
             else:
                 for latest_field in self.latest_fields:
-                    latest_value = item[latest_field]
-                    self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+                    latest_value = item.get(latest_field)
+                    if latest_value is not None:
+                        self.latest[latest_field] = max(latest_value, self.latest[latest_field])
             yield item
 
 
