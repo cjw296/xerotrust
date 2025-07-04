@@ -128,7 +128,10 @@ class Export:
         self.latest = latest
         for item in self._raw_items(manager, latest):
             if self.latest is None:
-                self.latest = {f: item[f] for f in self.latest_fields}
+                try:
+                    self.latest = {f: item[f] for f in self.latest_fields}
+                except:
+                    pass
             else:
                 for latest_field in self.latest_fields:
                     latest_value = item[latest_field]
@@ -198,8 +201,36 @@ class BankTransactionsExport(Export):
 
 
 EXPORTS = {
-    'Accounts': Export("accounts.jsonl"),
-    'Contacts': Export("contacts.jsonl"),
-    'Journals': JournalsExport(),
-    'BankTransactions': BankTransactionsExport(),
+#attachments export needs to be handled differently to other exportss
+#	'attachments': Export("attachments.jsonl"), 
+	'accounts': Export("accounts.jsonl"),
+	'BankTransactions': BankTransactionsExport(),
+	'BankTransfers': Export("banktransfers.jsonl"),
+	'BrandingThemes': Export("brandingthemes.jsonl"),
+	'batchpayments': Export("batchpayments.jsonl"),
+	'contactgroups': Export("contactgroups.jsonl"),
+	'contacts': Export("contacts.jsonl"),
+	'creditnotes': Export("creditnotes.jsonl"),
+	'currencies': Export("currencies.jsonl"),
+	'employees': Export("employees.jsonl"),
+	'expenseclaims': Export("expenseclaims.jsonl"),
+	'invoices': Export("invoices.jsonl"),
+	'items': Export("items.jsonl"),
+	'journals': JournalsExport(),
+	'manualjournals': Export("manualjournals.jsonl"),
+	'organisations': Export("organisations.jsonl"),
+	'overpayments': Export("overpayments.jsonl"),
+#paymentservices export fails with xero.exceptions.XeroUnauthorized: AuthorizationUnsuccessfu
+#	'paymentservices': Export("paymentservices.jsonl"),
+	'payments': Export("payments.jsonl"),
+	'prepayments': Export("prepayments.jsonl"),
+	'purchaseorders': Export("purchaseorders.jsonl"),
+	'receipts': Export("receipts.jsonl"),
+	'repeatinginvoices': Export("repeatinginvoices.jsonl"),
+	'reports': Export("reports.jsonl"),
+	'taxrates': Export("taxrates.jsonl"),
+	'trackingcategories': Export("trackingcategories.jsonl"),
+	'users': Export("users.jsonl"),
+	'quotes': Export("quotes.jsonl")
 }
+
