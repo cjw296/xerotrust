@@ -107,7 +107,7 @@ class TestLogin:
             "expires_in": 3600,
         }
 
-        mock: type[MockTime] = mock_time(delta=0)
+        mock = mock_time(delta=0)
 
         with replace_in_module(time.time, mock):
             run_cli(auth_path, "login", "--client-id", "ID")
