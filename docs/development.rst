@@ -18,6 +18,15 @@ Setting up a development environment
 
    uv sync --all-groups
 
+Running from a development environment
+--------------------------------------
+
+The command line interface can be used from a development environment as follows:
+
+.. code-block:: bash
+
+   uv run xerotrust --help
+
 Running the tests
 -----------------
 
