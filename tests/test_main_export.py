@@ -410,6 +410,25 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/BatchPayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BatchPayments': [
+                    {
+                        'BatchPaymentID': 'bp1',
+                        'Reference': 'BP-001',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Amount': 1000.0,
+                        'Type': 'PAYBATCH',
+                        'Status': 'AUTHORISED',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -437,6 +456,7 @@ class TestExport:
                 'Tenant 1/brandingthemes.jsonl': '{"BrandingThemeID": "bt1", "Name": "Default Theme", "SortOrder": 1, "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/contactgroups.jsonl': '{"ContactGroupID": "cg1", "Name": "VIP Customers", "Status": "ACTIVE"}\n',
                 'Tenant 1/quotes.jsonl': '{"QuoteID": "q1", "QuoteNumber": "QU-001", "Date": "2023-01-01T00:00:00+00:00", "ExpiryDate": "2023-02-01T00:00:00+00:00", "Status": "DRAFT", "Total": 500.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/batchpayments.jsonl': '{"BatchPaymentID": "bp1", "Reference": "BP-001", "Date": "2023-01-01T00:00:00+00:00", "Amount": 1000.0, "Type": "PAYBATCH", "Status": "AUTHORISED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -2066,6 +2086,41 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/quotes.jsonl': '{"QuoteID": "q1", "QuoteNumber": "QU-001", "Date": "2023-01-01T00:00:00+00:00", "ExpiryDate": "2023-02-01T00:00:00+00:00", "Status": "DRAFT", "Total": 500.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_batchpayments(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/BatchPayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BatchPayments': [
+                    {
+                        'BatchPaymentID': 'bp1',
+                        'Reference': 'BP-001',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Amount': 1000.0,
+                        'Type': 'PAYBATCH',
+                        'Status': 'AUTHORISED',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'batchpayments')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/batchpayments.jsonl': '{"BatchPaymentID": "bp1", "Reference": "BP-001", "Date": "2023-01-01T00:00:00+00:00", "Amount": 1000.0, "Type": "PAYBATCH", "Status": "AUTHORISED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
