@@ -225,4 +225,5 @@ EXPORTS = {
     'Users': Export("users.jsonl"),
     'BrandingThemes': Export("brandingthemes.jsonl"),
     'ContactGroups': Export("contactgroups.jsonl"),
+    'Quotes': Export("quotes.jsonl"),
 }
