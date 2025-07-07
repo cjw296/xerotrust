@@ -207,4 +207,5 @@ EXPORTS = {
     'Contacts': Export("contacts.jsonl"),
     'Journals': JournalsExport(),
     'BankTransactions': BankTransactionsExport(),
+    'BankTransfers': Export("banktransfers.jsonl"),
 }
