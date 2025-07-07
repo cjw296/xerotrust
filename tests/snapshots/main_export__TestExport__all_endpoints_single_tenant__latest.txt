@@ -27,5 +27,17 @@
   },
   "ManualJournals": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "Organisations": {
+    "CreatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "Overpayments": {
+    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "Payments": {
+    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "Prepayments": {
+    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   }
 }
