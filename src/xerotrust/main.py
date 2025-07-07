@@ -242,21 +242,24 @@ def export(
 
             counter_manager = enlighten.get_manager()
             for endpoint in endpoints:
-                manager = getattr(xero, endpoint.lower())
-                exporter = EXPORTS[endpoint]
-                counter = counter_manager.counter(
-                    desc=f'{tenant_name}: {endpoint}',
-                    unit='items exported',
-                )
-                for row in counter(exporter.items(manager, latest=latest.get(endpoint))):
-                    files.write(
-                        row,
-                        tenant_path / exporter.name(row, split),
-                        append=update and exporter.supports_update,
+                try:
+                    manager = getattr(xero, endpoint.lower())
+                    exporter = EXPORTS[endpoint]
+                    counter = counter_manager.counter(
+                        desc=f'{tenant_name}: {endpoint}',
+                        unit='items exported',
                     )
-                latest[endpoint] = exporter.latest
-                counter.refresh()
-
+                    for row in counter(exporter.items(manager, latest=latest.get(endpoint))):
+                        files.write(
+                            row,
+                            tenant_path / exporter.name(row, split),
+                            append=update and exporter.supports_update,
+                        )
+                    latest[endpoint] = exporter.latest
+                    counter.refresh()
+                except Exception as e:
+                    e.add_note(f'while exporting {endpoint!r}')
+                    raise
             latest.save(latest_path)
 
 
