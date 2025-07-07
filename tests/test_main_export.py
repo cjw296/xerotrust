@@ -191,6 +191,23 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'ManualJournals': [
+                    {
+                        'ManualJournalID': 'mj1',
+                        'Narration': 'Test manual journal',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Status': 'POSTED',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -205,6 +222,7 @@ class TestExport:
                 'Tenant 1/currencies.jsonl': '{"Code": "USD", "Description": "United States Dollar"}\n',
                 'Tenant 1/employees.jsonl': '{"EmployeeID": "emp1", "FirstName": "John", "LastName": "Doe", "Status": "ACTIVE", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/items.jsonl': '{"ItemID": "item1", "Code": "WIDGET", "Name": "Blue Widget", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/manualjournals.jsonl': '{"ManualJournalID": "mj1", "Narration": "Test manual journal", "Date": "2023-01-01T00:00:00+00:00", "Status": "POSTED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -401,6 +419,39 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/items.jsonl': '{"ItemID": "item1", "Code": "WIDGET", "Name": "Blue Widget", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_manualjournals(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'ManualJournals': [
+                    {
+                        'ManualJournalID': 'mj1',
+                        'Narration': 'Test manual journal',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Status': 'POSTED',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'manualjournals')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/manualjournals.jsonl': '{"ManualJournalID": "mj1", "Narration": "Test manual journal", "Date": "2023-01-01T00:00:00+00:00", "Status": "POSTED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
