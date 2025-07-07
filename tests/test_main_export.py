@@ -294,6 +294,53 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/RepeatingInvoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'RepeatingInvoices': [
+                    {
+                        'RepeatingInvoiceID': 'ri1',
+                        'Type': 'ACCREC',
+                        'Status': 'AUTHORISED',
+                        'Total': 100.0,
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/TaxRates",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TaxRates': [
+                    {
+                        'Name': 'GST',
+                        'TaxType': 'OUTPUT',
+                        'DisplayTaxRate': 10.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/TrackingCategories",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TrackingCategories': [
+                    {
+                        'TrackingCategoryID': 'tc1',
+                        'Name': 'Region',
+                        'Status': 'ACTIVE',
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -314,6 +361,9 @@ class TestExport:
                 'Tenant 1/payments.jsonl': '{"PaymentID": "pay1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "PaymentType": "ACCRECPAYMENT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/purchaseorders.jsonl': '{"PurchaseOrderID": "po1", "PurchaseOrderNumber": "PO-001", "Date": "2023-01-01T00:00:00+00:00", "Status": "DRAFT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/repeatinginvoices.jsonl': '{"RepeatingInvoiceID": "ri1", "Type": "ACCREC", "Status": "AUTHORISED", "Total": 100.0}\n',
+                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/trackingcategories.jsonl': '{"TrackingCategoryID": "tc1", "Name": "Region", "Status": "ACTIVE"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -1715,6 +1765,101 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/purchaseorders.jsonl': '{"PurchaseOrderID": "po1", "PurchaseOrderNumber": "PO-001", "Date": "2023-01-01T00:00:00+00:00", "Status": "DRAFT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_repeatinginvoices(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/RepeatingInvoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'RepeatingInvoices': [
+                    {
+                        'RepeatingInvoiceID': 'ri1',
+                        'Type': 'ACCREC',
+                        'Status': 'AUTHORISED',
+                        'Total': 100.0,
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'repeatinginvoices')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/repeatinginvoices.jsonl': '{"RepeatingInvoiceID": "ri1", "Type": "ACCREC", "Status": "AUTHORISED", "Total": 100.0}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_taxrates(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/TaxRates",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TaxRates': [
+                    {
+                        'Name': 'GST',
+                        'TaxType': 'OUTPUT',
+                        'DisplayTaxRate': 10.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'taxrates')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_trackingcategories(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/TrackingCategories",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TrackingCategories': [
+                    {
+                        'TrackingCategoryID': 'tc1',
+                        'Name': 'Region',
+                        'Status': 'ACTIVE',
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'trackingcategories')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/trackingcategories.jsonl': '{"TrackingCategoryID": "tc1", "Name": "Region", "Status": "ACTIVE"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
