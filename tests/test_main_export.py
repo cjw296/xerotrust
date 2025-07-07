@@ -341,6 +341,56 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/Users",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Users': [
+                    {
+                        'UserID': 'u1',
+                        'EmailAddress': 'user@example.com',
+                        'FirstName': 'John',
+                        'LastName': 'Smith',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'IsSubscriber': True,
+                        'OrganisationRole': 'STANDARD',
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/BrandingThemes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BrandingThemes': [
+                    {
+                        'BrandingThemeID': 'bt1',
+                        'Name': 'Default Theme',
+                        'SortOrder': 1,
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/ContactGroups",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'ContactGroups': [
+                    {
+                        'ContactGroupID': 'cg1',
+                        'Name': 'VIP Customers',
+                        'Status': 'ACTIVE',
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -364,6 +414,9 @@ class TestExport:
                 'Tenant 1/repeatinginvoices.jsonl': '{"RepeatingInvoiceID": "ri1", "Type": "ACCREC", "Status": "AUTHORISED", "Total": 100.0}\n',
                 'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/trackingcategories.jsonl': '{"TrackingCategoryID": "tc1", "Name": "Region", "Status": "ACTIVE"}\n',
+                'Tenant 1/users.jsonl': '{"UserID": "u1", "EmailAddress": "user@example.com", "FirstName": "John", "LastName": "Smith", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "IsSubscriber": true, "OrganisationRole": "STANDARD"}\n',
+                'Tenant 1/brandingthemes.jsonl': '{"BrandingThemeID": "bt1", "Name": "Default Theme", "SortOrder": 1, "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/contactgroups.jsonl': '{"ContactGroupID": "cg1", "Name": "VIP Customers", "Status": "ACTIVE"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -1860,6 +1913,104 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/trackingcategories.jsonl': '{"TrackingCategoryID": "tc1", "Name": "Region", "Status": "ACTIVE"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_users(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Users",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Users': [
+                    {
+                        'UserID': 'u1',
+                        'EmailAddress': 'user@example.com',
+                        'FirstName': 'John',
+                        'LastName': 'Smith',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'IsSubscriber': True,
+                        'OrganisationRole': 'STANDARD',
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'users')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/users.jsonl': '{"UserID": "u1", "EmailAddress": "user@example.com", "FirstName": "John", "LastName": "Smith", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "IsSubscriber": true, "OrganisationRole": "STANDARD"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_brandingthemes(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/BrandingThemes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BrandingThemes': [
+                    {
+                        'BrandingThemeID': 'bt1',
+                        'Name': 'Default Theme',
+                        'SortOrder': 1,
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'brandingthemes')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/brandingthemes.jsonl': '{"BrandingThemeID": "bt1", "Name": "Default Theme", "SortOrder": 1, "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_contactgroups(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/ContactGroups",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'ContactGroups': [
+                    {
+                        'ContactGroupID': 'cg1',
+                        'Name': 'VIP Customers',
+                        'Status': 'ACTIVE',
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'contactgroups')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/contactgroups.jsonl': '{"ContactGroupID": "cg1", "Name": "VIP Customers", "Status": "ACTIVE"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )

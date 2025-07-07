@@ -222,4 +222,7 @@ EXPORTS = {
     'RepeatingInvoices': Export("repeatinginvoices.jsonl"),
     'TaxRates': Export("taxrates.jsonl"),
     'TrackingCategories': Export("trackingcategories.jsonl"),
+    'Users': Export("users.jsonl"),
+    'BrandingThemes': Export("brandingthemes.jsonl"),
+    'ContactGroups': Export("contactgroups.jsonl"),
 }
