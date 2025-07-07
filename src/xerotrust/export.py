@@ -210,4 +210,5 @@ EXPORTS = {
     'BankTransfers': Export("banktransfers.jsonl"),
     'Invoices': Export("invoices.jsonl"),
     'CreditNotes': Export("creditnotes.jsonl"),
+    'Currencies': Export("currencies.jsonl"),
 }
