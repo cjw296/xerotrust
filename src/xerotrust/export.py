@@ -211,4 +211,5 @@ EXPORTS = {
     'Invoices': Export("invoices.jsonl"),
     'CreditNotes': Export("creditnotes.jsonl"),
     'Currencies': Export("currencies.jsonl"),
+    'Employees': Export("employees.jsonl"),
 }
