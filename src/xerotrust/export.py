@@ -226,4 +226,5 @@ EXPORTS = {
     'BrandingThemes': Export("brandingthemes.jsonl"),
     'ContactGroups': Export("contactgroups.jsonl"),
     'Quotes': Export("quotes.jsonl"),
+    'BatchPayments': Export("batchpayments.jsonl"),
 }
