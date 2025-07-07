@@ -219,4 +219,7 @@ EXPORTS = {
     'Payments': Export("payments.jsonl"),
     'Prepayments': Export("prepayments.jsonl"),
     'PurchaseOrders': Export("purchaseorders.jsonl"),
+    'RepeatingInvoices': Export("repeatinginvoices.jsonl"),
+    'TaxRates': Export("taxrates.jsonl"),
+    'TrackingCategories': Export("trackingcategories.jsonl"),
 }
