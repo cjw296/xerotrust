@@ -5,19 +5,6 @@ The ``export`` command is used to export your `Xero`__ data to local files.
 
 __ https://www.xero.com/
 
-What can be exported
---------------------
-
-Export of the following types of content has been implemented:
-
-* **Contacts** - Contact and customer details
-* **Chart of accounts** - Account structure and details
-* **Account transactions** - Reconciled bank account transaction records
-* **Journal entries** - Accounting transactions and journal entries
-
-If something you need is missing, it should be easy enough to add, please file
-a `feature request <https://github.com/cjw296/xerotrust/issues>`_.
-
 What can't be Exported
 ----------------------
 
@@ -94,3 +81,52 @@ __ https://www.json.org/
 __ https://jsonlines.org/
 
 For the complete file structure, see :doc:`usage`.
+
+
+What can be exported
+--------------------
+
+Export of the following types of content has been implemented:
+
+**Core Accounting Data:**
+
+* **Accounts** - Chart of accounts structure and details
+* **Contacts** - Contact and customer details
+* **Journals** - Accounting transactions and journal entries
+* **BankTransactions** - Reconciled bank account transaction records
+* **BankTransfers** - Bank transfer records between accounts
+
+**Transaction Records:**
+
+* **Invoices** - Sales invoices and bills
+* **CreditNotes** - Credit notes for refunds and adjustments
+* **Payments** - Payment records and receipts
+* **Overpayments** - Customer overpayment records
+* **Prepayments** - Supplier prepayment records
+* **ManualJournals** - Manual journal entries
+* **BatchPayments** - Batch payment records
+
+**Business Operations:**
+
+* **PurchaseOrders** - Purchase order records
+* **Quotes** - Quote and estimate records
+* **RepeatingInvoices** - Recurring invoice templates
+
+**Reference Data:**
+
+* **Currencies** - Currency definitions and exchange rates
+* **TaxRates** - Tax rate configurations
+* **Items** - Product and service item definitions
+* **TrackingCategories** - Custom tracking category definitions
+
+**Organization Setup:**
+
+* **Organisations** - Organization profile and settings
+* **Users** - User accounts and permissions
+* **Employees** - Employee records
+* **BrandingThemes** - Invoice branding themes
+* **ContactGroups** - Contact grouping configurations
+
+If something you need is missing, it should be easy enough to add, please file
+a `feature request <https://github.com/cjw296/xerotrust/issues>`_.
+
