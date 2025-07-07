@@ -8,7 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 from pytest_insta import SnapshotFixture
-from testfixtures import replace_in_module
+from testfixtures import replace_in_module, ShouldRaise, compare
+from xero.exceptions import XeroInternalError
 
 from xerotrust import export
 
@@ -2122,5 +2123,77 @@ class TestExport:
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/batchpayments.jsonl': '{"BatchPaymentID": "bp1", "Reference": "BP-001", "Date": "2023-01-01T00:00:00+00:00", "Amount": 1000.0, "Type": "PAYBATCH", "Status": "AUTHORISED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_export_error_handling_with_endpoint_context(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        """Test that export errors include context about which endpoint failed."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # First endpoint succeeds
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Accounts': [
+                    {
+                        'AccountID': 'a1',
+                        'Name': 'Test Account',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        # Second endpoint fails with 500 error
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=500,
+            response_json={'Status': 'ERROR', 'Message': 'Internal Server Error'},
+        )
+
+        # Third endpoint would succeed but won't be reached due to error
+        pook.get(
+            f"{XERO_API_URL}/Currencies",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Currencies': [
+                    {
+                        'Code': 'USD',
+                        'Description': 'United States Dollar',
+                    }
+                ],
+            },
+        )
+
+        with ShouldRaise(XeroInternalError) as s:
+            run_cli(
+                tmp_path,
+                'export',
+                '--path',
+                str(tmp_path),
+                '--tenant',
+                't1',
+                'accounts',
+                'contacts',
+                'currencies',
+            )
+        # Verify the error includes context about which endpoint failed
+        # The error context should be in the exception notes
+        compare(s.raised.__notes__, expected=["while exporting 'Contacts'"])
+
+        # Verify that only the first endpoint was successfully exported before the error
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Test Account", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                # Note: latest.json should NOT exist because the export failed before completion
             }
         )
