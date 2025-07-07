@@ -108,6 +108,24 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv1',
+                        'Type': 'ACCREC',
+                        'InvoiceNumber': '12345',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 100.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -117,6 +135,7 @@ class TestExport:
                 'Tenant 1/contacts.jsonl': '{"ContactID": "c1", "Name": "Cont 1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/transactions-2023-01.jsonl': '{"BankTransactionID": "bt1", "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "Total": 100.0}\n',
                 'Tenant 1/banktransfers.jsonl': '{"BankTransferID": "bt1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/invoices.jsonl': '{"InvoiceID": "inv1", "Type": "ACCREC", "InvoiceNumber": "12345", "Date": "2023-01-01T00:00:00+00:00", "Total": 100.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -150,6 +169,40 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/banktransfers.jsonl': '{"BankTransferID": "bt1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_invoices(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv1',
+                        'Type': 'ACCREC',
+                        'InvoiceNumber': '12345',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 100.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'invoices')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/invoices.jsonl': '{"InvoiceID": "inv1", "Type": "ACCREC", "InvoiceNumber": "12345", "Date": "2023-01-01T00:00:00+00:00", "Total": 100.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
