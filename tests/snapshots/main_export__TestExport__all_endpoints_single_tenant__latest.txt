@@ -47,5 +47,12 @@
   "TaxRates": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
-  "TrackingCategories": {}
+  "TrackingCategories": {},
+  "Users": {
+    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "BrandingThemes": {
+    "CreatedDateUTC": "2023-01-01T00:00:00+00:00"
+  },
+  "ContactGroups": {}
 }
