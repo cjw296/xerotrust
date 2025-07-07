@@ -208,6 +208,75 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/Organisations",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Organisations': [
+                    {
+                        'OrganisationID': 'org1',
+                        'Name': 'Test Organisation',
+                        'LegalName': 'Test Organisation Ltd',
+                        'BaseCurrency': 'USD',
+                        'CountryCode': 'US',
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Overpayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Overpayments': [
+                    {
+                        'OverpaymentID': 'op1',
+                        'Type': 'RECEIVE-OVERPAYMENT',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 150.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Payments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Payments': [
+                    {
+                        'PaymentID': 'pay1',
+                        'Amount': 100.0,
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'PaymentType': 'ACCRECPAYMENT',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Prepayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Prepayments': [
+                    {
+                        'PrepaymentID': 'pp1',
+                        'Type': 'RECEIVE-PREPAYMENT',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 200.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -223,6 +292,10 @@ class TestExport:
                 'Tenant 1/employees.jsonl': '{"EmployeeID": "emp1", "FirstName": "John", "LastName": "Doe", "Status": "ACTIVE", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/items.jsonl': '{"ItemID": "item1", "Code": "WIDGET", "Name": "Blue Widget", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/manualjournals.jsonl': '{"ManualJournalID": "mj1", "Narration": "Test manual journal", "Date": "2023-01-01T00:00:00+00:00", "Status": "POSTED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/organisations.jsonl': '{"OrganisationID": "org1", "Name": "Test Organisation", "LegalName": "Test Organisation Ltd", "BaseCurrency": "USD", "CountryCode": "US", "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/overpayments.jsonl': '{"OverpaymentID": "op1", "Type": "RECEIVE-OVERPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 150.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/payments.jsonl': '{"PaymentID": "pay1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "PaymentType": "ACCRECPAYMENT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -1458,6 +1531,139 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/transactions-2023-03.jsonl': snapshot,
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_organisations(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Organisations",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Organisations': [
+                    {
+                        'OrganisationID': 'org1',
+                        'Name': 'Test Organisation',
+                        'LegalName': 'Test Organisation Ltd',
+                        'BaseCurrency': 'USD',
+                        'CountryCode': 'US',
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'organisations')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/organisations.jsonl': '{"OrganisationID": "org1", "Name": "Test Organisation", "LegalName": "Test Organisation Ltd", "BaseCurrency": "USD", "CountryCode": "US", "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_overpayments(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Overpayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Overpayments': [
+                    {
+                        'OverpaymentID': 'op1',
+                        'Type': 'RECEIVE-OVERPAYMENT',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 150.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'overpayments')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/overpayments.jsonl': '{"OverpaymentID": "op1", "Type": "RECEIVE-OVERPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 150.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_payments(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Payments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Payments': [
+                    {
+                        'PaymentID': 'pay1',
+                        'Amount': 100.0,
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'PaymentType': 'ACCRECPAYMENT',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'payments')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/payments.jsonl': '{"PaymentID": "pay1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "PaymentType": "ACCRECPAYMENT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_prepayments(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Prepayments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Prepayments': [
+                    {
+                        'PrepaymentID': 'pp1',
+                        'Type': 'RECEIVE-PREPAYMENT',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 200.0,
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'prepayments')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
