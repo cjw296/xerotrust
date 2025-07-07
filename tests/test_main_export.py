@@ -277,6 +277,23 @@ class TestExport:
                 ],
             },
         )
+        pook.get(
+            f"{XERO_API_URL}/PurchaseOrders",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'PurchaseOrders': [
+                    {
+                        'PurchaseOrderID': 'po1',
+                        'PurchaseOrderNumber': 'PO-001',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Status': 'DRAFT',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path))
 
@@ -296,6 +313,7 @@ class TestExport:
                 'Tenant 1/overpayments.jsonl': '{"OverpaymentID": "op1", "Type": "RECEIVE-OVERPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 150.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/payments.jsonl': '{"PaymentID": "pay1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "PaymentType": "ACCRECPAYMENT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/purchaseorders.jsonl': '{"PurchaseOrderID": "po1", "PurchaseOrderNumber": "PO-001", "Date": "2023-01-01T00:00:00+00:00", "Status": "DRAFT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
@@ -1664,6 +1682,39 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
+    def test_purchaseorders(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/PurchaseOrders",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'PurchaseOrders': [
+                    {
+                        'PurchaseOrderID': 'po1',
+                        'PurchaseOrderNumber': 'PO-001',
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Status': 'DRAFT',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'purchaseorders')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/purchaseorders.jsonl': '{"PurchaseOrderID": "po1", "PurchaseOrderNumber": "PO-001", "Date": "2023-01-01T00:00:00+00:00", "Status": "DRAFT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/latest.json': snapshot,
             }
         )
