@@ -60,3 +60,14 @@ To make a release:
 - commit on the ``main`` branch and push to https://github.com/cjw296/xerotrust.
 
 Carthorse should take care of the rest.
+
+Xero API Documentation
+----------------------
+
+The ``api-docs/`` directory contains markdown files optimized for AI/LLM consumption
+that were generated from the `Xero Developer documentation`__.
+
+__ https://developer.xero.com/documentation/api/accounting/overview
+
+See ``api-docs/README.md`` for details.
+
