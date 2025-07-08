@@ -1,6 +1,14 @@
 Changes
 =======
 
+1.1.0 (2025-07-08)
+------------------
+
+- Added export support for most endpoints, with exclusions explained.
+- Improved error handling with better context when exceptions occur during export.
+- Added an AI-friendly version of Xero's API documentation in ``api-docs/`` directory.
+- Added rate limiting to all simple endpoints.
+
 1.0.0 (2025-06-27)
 ------------------
 
