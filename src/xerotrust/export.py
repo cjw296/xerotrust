@@ -120,7 +120,7 @@ class Export:
     def _raw_items(
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
-        return manager.all()  # type: ignore[no-any-return]
+        return retry_on_rate_limit(manager.all)
 
     def items(
         self, manager: Any, latest: dict[str, int | datetime] | None

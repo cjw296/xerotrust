@@ -850,6 +850,57 @@ class TestExport:
             }
         )
 
+    def test_accounts_with_rate_limit(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # First request hits rate limit
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=429,  # Rate limit exceeded
+            response_headers={'retry-after': '2'},  # Server responds with retry-after header
+        )
+
+        # Second request (after retry) succeeds
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Accounts': [
+                    {
+                        'AccountID': 'a1',
+                        'Name': 'Test Account',
+                        'Code': '200',
+                        'Type': 'BANK',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    }
+                ],
+            },
+        )
+
+        # Mock the sleep function to avoid actually waiting
+        mock_sleep = Mock()
+
+        with replace_in_module(time.sleep, mock_sleep, module=export):
+            # Run the export command for accounts only
+            run_cli(tmp_path, 'export', 'accounts', '--path', str(tmp_path))
+
+        # Verify sleep was called with retry-after value
+        mock_sleep.assert_called_once_with(2)
+
+        # Verify the account was exported after retrying
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Test Account", "Code": "200", "Type": "BANK", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/latest.json': snapshot,
+            }
+        )
+
     def setup_journal_mocks(self, pook: Any, tenant_id: str = 't1') -> None:
         """Helper to set up common pook mocks for journal exports."""
         pook.get(
