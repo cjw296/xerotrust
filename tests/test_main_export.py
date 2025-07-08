@@ -2314,6 +2314,40 @@ class TestExport:
             }
         )
 
+    def test_update_from_latest_json_with_nulls(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        """Ensure that latest.json can be parsed when it has null and {} values"""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Currencies",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Currencies': []},
+        )
+
+        pook.get(
+            f"{XERO_API_URL}/TaxRates",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'TaxRates': []},
+        )
+
+        self.write_json(
+            tmp_path / "Tenant 1" / 'latest.json',
+            {"Currencies": None, "TaxRates": {}},
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'currencies', 'taxrates')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/latest.json': '{}\n',
+            }
+        )
+
     def test_endpoint_with_no_results(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:

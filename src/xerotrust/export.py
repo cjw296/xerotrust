@@ -80,9 +80,10 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
         instance = cls()
         if path.exists():
             for endpoint, data in json.loads(path.read_text()).items():
-                for key in data:
-                    if 'Date' in key:
-                        data[key] = datetime.fromisoformat(data[key])
+                if data:
+                    for key in data:
+                        if 'Date' in key:
+                            data[key] = datetime.fromisoformat(data[key])
                 instance[endpoint] = data
         return instance
 
