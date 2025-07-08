@@ -249,13 +249,14 @@ def export(
                         desc=f'{tenant_name}: {endpoint}',
                         unit='items exported',
                     )
-                    for row in counter(exporter.items(manager, latest=latest.get(endpoint))):
+                    for row in counter(exporter.items(manager, latest=latest.pop(endpoint, None))):
                         files.write(
                             row,
                             tenant_path / exporter.name(row, split),
                             append=update and exporter.supports_update,
                         )
-                    latest[endpoint] = exporter.latest
+                    if exporter.latest:
+                        latest[endpoint] = exporter.latest
                     counter.refresh()
                 except Exception as e:
                     e.add_note(f'while exporting {endpoint!r}')

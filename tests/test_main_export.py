@@ -580,7 +580,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/currencies.jsonl': '{"Code": "USD", "Description": "United States Dollar"}\n',
-                'Tenant 1/latest.json': '{\n  "Currencies": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -1956,7 +1956,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0}\n',
-                'Tenant 1/latest.json': '{\n  "TaxRates": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -2181,7 +2181,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/currencies.jsonl': '{"Code": "USD", "Description": "United States Dollar"}\n',
-                'Tenant 1/latest.json': '{\n  "Currencies": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -2213,7 +2213,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0}\n',
-                'Tenant 1/latest.json': '{\n  "TaxRates": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -2245,7 +2245,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/trackingcategories.jsonl': '{"Name": "Region", "Status": "ACTIVE", "TrackingCategoryID": "tc1"}\n',
-                'Tenant 1/latest.json': '{\n  "TrackingCategories": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -2277,7 +2277,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/contactgroups.jsonl': '{"Name": "Suppliers", "Status": "ACTIVE", "ContactGroupID": "cg1"}\n',
-                'Tenant 1/latest.json': '{\n  "ContactGroups": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
@@ -2310,14 +2310,13 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/repeatinginvoices.jsonl': '{"Type": "ACCREC", "Status": "AUTHORISED", "RepeatingInvoiceID": "ri1", "Total": 100.0}\n',
-                'Tenant 1/latest.json': '{\n  "RepeatingInvoices": {}\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 
     def test_endpoint_with_no_results(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
-        """Test that endpoint returning no results has null value in latest.json."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -2335,7 +2334,7 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/latest.json': '{\n  "Employees": null\n}\n',
+                'Tenant 1/latest.json': '{}\n',
             }
         )
 

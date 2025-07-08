@@ -5,7 +5,6 @@
   "Contacts": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
-  "Journals": null,
   "BankTransactions": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
@@ -18,7 +17,6 @@
   "CreditNotes": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
-  "Currencies": {},
   "Employees": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
@@ -43,16 +41,12 @@
   "PurchaseOrders": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
-  "RepeatingInvoices": {},
-  "TaxRates": {},
-  "TrackingCategories": {},
   "Users": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
   "BrandingThemes": {
     "CreatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
-  "ContactGroups": {},
   "Quotes": {
     "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"
   },
