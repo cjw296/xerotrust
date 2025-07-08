@@ -322,7 +322,6 @@ class TestExport:
                         'Name': 'GST',
                         'TaxType': 'OUTPUT',
                         'DisplayTaxRate': 10.0,
-                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
                     }
                 ],
             },
@@ -451,7 +450,7 @@ class TestExport:
                 'Tenant 1/prepayments.jsonl': '{"PrepaymentID": "pp1", "Type": "RECEIVE-PREPAYMENT", "Date": "2023-01-01T00:00:00+00:00", "Total": 200.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/purchaseorders.jsonl': '{"PurchaseOrderID": "po1", "PurchaseOrderNumber": "PO-001", "Date": "2023-01-01T00:00:00+00:00", "Status": "DRAFT", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
                 'Tenant 1/repeatinginvoices.jsonl': '{"RepeatingInvoiceID": "ri1", "Type": "ACCREC", "Status": "AUTHORISED", "Total": 100.0}\n',
-                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
+                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0}\n',
                 'Tenant 1/trackingcategories.jsonl': '{"TrackingCategoryID": "tc1", "Name": "Region", "Status": "ACTIVE"}\n',
                 'Tenant 1/users.jsonl': '{"UserID": "u1", "EmailAddress": "user@example.com", "FirstName": "John", "LastName": "Smith", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00", "IsSubscriber": true, "OrganisationRole": "STANDARD"}\n',
                 'Tenant 1/brandingthemes.jsonl': '{"BrandingThemeID": "bt1", "Name": "Default Theme", "SortOrder": 1, "CreatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
@@ -1932,9 +1931,7 @@ class TestExport:
             }
         )
 
-    def test_taxrates(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_taxrates(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -1948,7 +1945,6 @@ class TestExport:
                         'Name': 'GST',
                         'TaxType': 'OUTPUT',
                         'DisplayTaxRate': 10.0,
-                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
                     }
                 ],
             },
@@ -1959,8 +1955,8 @@ class TestExport:
         check_files(
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0}\n',
+                'Tenant 1/latest.json': '{\n  "TaxRates": {}\n}\n',
             }
         )
 
@@ -2163,7 +2159,9 @@ class TestExport:
             }
         )
 
-    def test_currencies_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_currencies_with_update(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that currencies endpoint works with --update despite having no tracking fields."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -2187,7 +2185,9 @@ class TestExport:
             }
         )
 
-    def test_taxrates_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_taxrates_with_update(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that taxrates endpoint works with --update despite having no tracking fields."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -2217,7 +2217,9 @@ class TestExport:
             }
         )
 
-    def test_trackingcategories_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_trackingcategories_with_update(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that trackingcategories endpoint works with --update despite having no tracking fields."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -2247,7 +2249,9 @@ class TestExport:
             }
         )
 
-    def test_contactgroups_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_contactgroups_with_update(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that contactgroups endpoint works with --update despite having no tracking fields."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -2277,7 +2281,9 @@ class TestExport:
             }
         )
 
-    def test_repeatinginvoices_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_repeatinginvoices_with_update(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that repeatinginvoices endpoint works with --update despite having no tracking fields."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
@@ -2308,7 +2314,9 @@ class TestExport:
             }
         )
 
-    def test_endpoint_with_no_results(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+    def test_endpoint_with_no_results(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
         """Test that endpoint returning no results has null value in latest.json."""
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 

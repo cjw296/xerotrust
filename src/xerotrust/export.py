@@ -142,6 +142,14 @@ class Export:
 
 
 @dataclass
+class StaticExport(Export):
+    """Export class for endpoints that don't support incremental updates."""
+
+    latest_fields: ClassVar[tuple[str, ...]] = ()
+    supports_update: ClassVar[bool] = False
+
+
+@dataclass
 class JournalsExport(Export):
     latest_fields: ClassVar[tuple[str, ...]] = ('JournalDate', 'JournalNumber')
     supports_update: ClassVar[bool] = True
@@ -210,7 +218,7 @@ EXPORTS = {
     'BankTransfers': Export("banktransfers.jsonl"),
     'Invoices': Export("invoices.jsonl"),
     'CreditNotes': Export("creditnotes.jsonl"),
-    'Currencies': Export("currencies.jsonl"),
+    'Currencies': StaticExport("currencies.jsonl"),
     'Employees': Export("employees.jsonl"),
     'Items': Export("items.jsonl"),
     'ManualJournals': Export("manualjournals.jsonl"),
@@ -219,12 +227,12 @@ EXPORTS = {
     'Payments': Export("payments.jsonl"),
     'Prepayments': Export("prepayments.jsonl"),
     'PurchaseOrders': Export("purchaseorders.jsonl"),
-    'RepeatingInvoices': Export("repeatinginvoices.jsonl"),
-    'TaxRates': Export("taxrates.jsonl"),
-    'TrackingCategories': Export("trackingcategories.jsonl"),
+    'RepeatingInvoices': StaticExport("repeatinginvoices.jsonl"),
+    'TaxRates': StaticExport("taxrates.jsonl"),
+    'TrackingCategories': StaticExport("trackingcategories.jsonl"),
     'Users': Export("users.jsonl"),
     'BrandingThemes': Export("brandingthemes.jsonl"),
-    'ContactGroups': Export("contactgroups.jsonl"),
+    'ContactGroups': StaticExport("contactgroups.jsonl"),
     'Quotes': Export("quotes.jsonl"),
     'BatchPayments': Export("batchpayments.jsonl"),
 }
