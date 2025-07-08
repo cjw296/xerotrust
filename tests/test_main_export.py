@@ -463,9 +463,7 @@ class TestExport:
             }
         )
 
-    def test_banktransfers(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_banktransfers(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -491,13 +489,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/banktransfers.jsonl': '{"BankTransferID": "bt1", "Amount": 100.0, "Date": "2023-01-01T00:00:00+00:00", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "BankTransfers": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
-    def test_invoices(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_invoices(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -525,13 +521,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/invoices.jsonl': '{"InvoiceID": "inv1", "Type": "ACCREC", "InvoiceNumber": "12345", "Date": "2023-01-01T00:00:00+00:00", "Total": 100.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "Invoices": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
-    def test_creditnotes(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_creditnotes(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -559,13 +553,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/creditnotes.jsonl': '{"CreditNoteID": "cn1", "Type": "ACCRECCREDIT", "CreditNoteNumber": "CN-12345", "Date": "2023-01-01T00:00:00+00:00", "Total": 50.0, "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "CreditNotes": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
-    def test_currencies(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_currencies(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -589,13 +581,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/currencies.jsonl': '{"Code": "USD", "Description": "United States Dollar"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "Currencies": {}\n}\n',
             }
         )
 
-    def test_employees(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_employees(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -622,13 +612,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/employees.jsonl': '{"EmployeeID": "emp1", "FirstName": "John", "LastName": "Doe", "Status": "ACTIVE", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "Employees": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
-    def test_items(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_items(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -654,13 +642,11 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/items.jsonl': '{"ItemID": "item1", "Code": "WIDGET", "Name": "Blue Widget", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "Items": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
-    def test_manualjournals(
-        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
-    ) -> None:
+    def test_manualjournals(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
         add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
 
         pook.get(
@@ -687,7 +673,7 @@ class TestExport:
             {
                 'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
                 'Tenant 1/manualjournals.jsonl': '{"ManualJournalID": "mj1", "Narration": "Test manual journal", "Date": "2023-01-01T00:00:00+00:00", "Status": "POSTED", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                'Tenant 1/latest.json': snapshot,
+                'Tenant 1/latest.json': '{\n  "ManualJournals": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}\n',
             }
         )
 
