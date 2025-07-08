@@ -2163,6 +2163,174 @@ class TestExport:
             }
         )
 
+    def test_currencies_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that currencies endpoint works with --update despite having no tracking fields."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Currencies",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Currencies': [{'Code': 'USD', 'Description': 'United States Dollar'}],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'currencies')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/currencies.jsonl': '{"Code": "USD", "Description": "United States Dollar"}\n',
+                'Tenant 1/latest.json': '{\n  "Currencies": {}\n}\n',
+            }
+        )
+
+    def test_taxrates_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that taxrates endpoint works with --update despite having no tracking fields."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/TaxRates",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TaxRates': [
+                    {
+                        'Name': 'GST',
+                        'TaxType': 'OUTPUT',
+                        'DisplayTaxRate': 10.0,
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'taxrates')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/taxrates.jsonl': '{"Name": "GST", "TaxType": "OUTPUT", "DisplayTaxRate": 10.0}\n',
+                'Tenant 1/latest.json': '{\n  "TaxRates": {}\n}\n',
+            }
+        )
+
+    def test_trackingcategories_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that trackingcategories endpoint works with --update despite having no tracking fields."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/TrackingCategories",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'TrackingCategories': [
+                    {
+                        'Name': 'Region',
+                        'Status': 'ACTIVE',
+                        'TrackingCategoryID': 'tc1',
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'trackingcategories')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/trackingcategories.jsonl': '{"Name": "Region", "Status": "ACTIVE", "TrackingCategoryID": "tc1"}\n',
+                'Tenant 1/latest.json': '{\n  "TrackingCategories": {}\n}\n',
+            }
+        )
+
+    def test_contactgroups_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that contactgroups endpoint works with --update despite having no tracking fields."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/ContactGroups",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'ContactGroups': [
+                    {
+                        'Name': 'Suppliers',
+                        'Status': 'ACTIVE',
+                        'ContactGroupID': 'cg1',
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'contactgroups')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/contactgroups.jsonl': '{"Name": "Suppliers", "Status": "ACTIVE", "ContactGroupID": "cg1"}\n',
+                'Tenant 1/latest.json': '{\n  "ContactGroups": {}\n}\n',
+            }
+        )
+
+    def test_repeatinginvoices_with_update(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that repeatinginvoices endpoint works with --update despite having no tracking fields."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/RepeatingInvoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'RepeatingInvoices': [
+                    {
+                        'Type': 'ACCREC',
+                        'Status': 'AUTHORISED',
+                        'RepeatingInvoiceID': 'ri1',
+                        'Total': 100.0,
+                    }
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'repeatinginvoices')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/repeatinginvoices.jsonl': '{"Type": "ACCREC", "Status": "AUTHORISED", "RepeatingInvoiceID": "ri1", "Total": 100.0}\n',
+                'Tenant 1/latest.json': '{\n  "RepeatingInvoices": {}\n}\n',
+            }
+        )
+
+    def test_endpoint_with_no_results(self, tmp_path: Path, pook: Any, check_files: FileChecker) -> None:
+        """Test that endpoint returning no results has null value in latest.json."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Employees",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Employees': [],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), 'employees')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/latest.json': '{\n  "Employees": null\n}\n',
+            }
+        )
+
     def test_export_error_handling_with_endpoint_context(
         self, tmp_path: Path, pook: Any, check_files: FileChecker
     ) -> None:
