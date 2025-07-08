@@ -5,17 +5,38 @@ The ``export`` command is used to export your `Xero`__ data to local files.
 
 __ https://www.xero.com/
 
-What can't be Exported
+What can't be exported
 ----------------------
 
 * **Bank statements** - apparently for `commercial reasons`__.
 
   __ https://xero.uservoice.com/forums/5528-xero-api/suggestions/2884040-reconcile-via-the-api
 
+* **Expense Claims** - `Deprecated by Xero`__ and no longer supported.
+
+  __ https://developer.xero.com/documentation/api/accounting/expenseclaims
+
 * **Custom reports** - Xero's `reports API`__ has no support for either running custom reports
   or exporting their configuration.
 
   __ https://developer.xero.com/documentation/api/accounting/reports
+
+* **History** and **Notes** for endpoints - `Not supported`__ by the ``pyxero`` library.
+
+  __ https://github.com/freakboy3742/pyxero/issues/382
+
+* **Linked Transactions** - `Not supported`__ by the ``pyxero`` library.
+
+  __ https://github.com/freakboy3742/pyxero/issues/383
+
+* **Receipts** - `Deprecated by Xero`__ and no longer supported.
+
+  __ https://developer.xero.com/documentation/api/accounting/receipts
+
+* **PaymentServices** - Requires the ``paymentservices`` OAuth scope which is only available after
+  `additional Xero partner certification and commercial agreements`__.
+
+  __  https://developer.xero.com/documentation/guides/oauth2/scopes/#organisation-scopes
 
 Basic usage
 -----------
