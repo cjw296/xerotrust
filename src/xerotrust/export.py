@@ -361,7 +361,24 @@ class AttachmentsExport(StaticExport):
 
                     # get attachments for this entity
                     try:
-                        attachments = retry_on_rate_limit(manager.get_attachments, entity_id)
+                        attachments_response = retry_on_rate_limit(
+                            manager.get_attachments, entity_id
+                        )
+                        if not attachments_response:
+                            continue
+
+                        # xero API returns attachments wrapped in a dict: {'Attachments': [...]}
+                        if isinstance(attachments_response, dict):
+                            attachments = attachments_response.get('Attachments', [])
+                        elif isinstance(attachments_response, list):
+                            attachments = attachments_response
+                        else:
+                            logging.warning(
+                                f'Unexpected attachments type for {endpoint} {entity_id}: '
+                                f'{type(attachments_response).__name__}'
+                            )
+                            continue
+
                         if not attachments:
                             continue
 
