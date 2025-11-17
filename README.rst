@@ -17,3 +17,39 @@ Xero accounting data, and also to allow you to analyse it with traditional tools
 Excel along with novel approaches you may wish to take using LLMs.
 
 __ https://www.xero.com/
+
+Documentation
+-------------
+
+Full documentation is available at https://xerotrust.readthedocs.io/en/latest/
+
+**Quick Start:** https://xerotrust.readthedocs.io/en/latest/
+
+Key resources:
+
+- `Installation Guide <https://xerotrust.readthedocs.io/en/latest/installation.html>`_
+- `Command Reference <https://xerotrust.readthedocs.io/en/latest/commands.html>`_
+- `API Documentation <https://xerotrust.readthedocs.io/en/latest/api.html>`_
+- `GitHub Repository <https://github.com/cjw296/xerotrust>`_
+
+Supported Exports
+-----------------
+
+xerotrust can export the following Xero data:
+
+=====================  ====================================================================
+Category               Exports
+=====================  ====================================================================
+**Core Accounting**    Accounts, Contacts, Invoices, Bills (Creditor Invoices),
+                       Credit Notes, Bank Transactions, Bank Transfers, Payments,
+                       Batch Payments
+**Journals**           Journals, Manual Journals
+**Reports**            Balance Sheet, Profit & Loss, Trial Balance, Bank Summary,
+                       Executive Summary, Aged Receivables, Aged Payables,
+                       Budget Summary
+**Supporting Data**    Items, Purchase Orders, Quotes, Tax Rates, Tracking Categories,
+                       Currencies, Employees, Users, Branding Themes, Contact Groups,
+                       Repeating Invoices
+**Files**              Attachments from Invoices, Bills, Bank Transactions, Contacts,
+                       and other supported entities
+=====================  ====================================================================

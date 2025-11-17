@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import os
 import time
 from collections import deque, defaultdict
 from datetime import date
@@ -78,6 +79,8 @@ def login(auth_path: Path, client_id: str) -> None:
             }
         )
     )
+    # set file permissions to 600 (owner read/write only)
+    os.chmod(auth_path, 0o600)
 
 
 def transform_options(func: Any) -> Any:
@@ -241,15 +244,28 @@ def export(
             latest = LatestData.load(latest_path) if update else LatestData()
 
             counter_manager = enlighten.get_manager()
+            # map export names to xero manager names
+            endpoint_manager_map = {
+                'Bills': 'invoices',  # bills use the invoices endpoint with Type=ACCPAY filter
+            }
             for endpoint in endpoints:
                 try:
-                    manager = getattr(xero, endpoint.lower())
                     exporter = EXPORTS[endpoint]
                     counter = counter_manager.counter(
                         desc=f'{tenant_name}: {endpoint}',
                         unit='items exported',
                     )
-                    for row in counter(exporter.items(manager, latest=latest.pop(endpoint, None))):
+
+                    # special handling for attachments - needs full xero instance
+                    if endpoint == 'Attachments':
+                        items = exporter.items_from_xero(xero)
+                    else:
+                        # get the manager name, defaulting to lowercase endpoint name
+                        manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
+                        manager = getattr(xero, manager_name)
+                        items = exporter.items(manager, latest=latest.pop(endpoint, None))
+
+                    for row in counter(items):
                         files.write(
                             row,
                             tenant_path / exporter.name(row, split),
