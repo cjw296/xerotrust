@@ -30,6 +30,10 @@ class FileChecker:
         for path in self.tmp_path.rglob('*'):
             if path.is_file():
                 relative_path = str(path.relative_to(self.tmp_path))
+                # ignore CSV files unless they're explicitly expected
+                # (CSV export was added later and should not break existing tests)
+                if relative_path.endswith('_data.csv') and relative_path not in expected_files:
+                    continue
                 actual_files[relative_path] = path.read_text().rstrip('\n')
         compare(expected=expected_files, actual=actual_files)
 

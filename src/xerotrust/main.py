@@ -18,9 +18,13 @@ from xero import Xero
 from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
+from .csv_export import TransactionCSVWriter
 from .export import EXPORTS, FileManager, Split, LatestData, download_attachment
 from .reconcile import RECONCILERS, AccountTotals
 from .transform import TRANSFORMERS, show
+
+# transaction endpoints that should be exported to CSV
+TRANSACTION_ENDPOINTS = {'Invoices', 'Bills', 'BankTransactions', 'CreditNotes', 'Payments'}
 
 
 @click.group()
@@ -259,58 +263,72 @@ def export(
             latest_path = tenant_path / "latest.json"
             latest = LatestData.load(latest_path) if update else LatestData()
 
+            # create CSV writer for combined transaction data (user-friendly location)
+            csv_path = tenant_path / f"{tenant_name}_data.csv"
+            csv_writer = TransactionCSVWriter(csv_path)
+
             counter_manager = enlighten.get_manager()
             # map export names to xero manager names
             endpoint_manager_map = {
                 'Bills': 'invoices',  # bills use the invoices endpoint with Type=ACCPAY filter
             }
-            for endpoint in endpoints_list:
-                try:
-                    exporter = EXPORTS[endpoint]
-                    counter = counter_manager.counter(
-                        desc=f'{tenant_name}: {endpoint}',
-                        unit='items exported',
-                    )
-
-                    # special handling for attachments - needs full xero instance
-                    if endpoint == 'Attachments':
-                        items = exporter.items_from_xero(xero)  # type: ignore[attr-defined]
-                    else:
-                        # get the manager name, defaulting to lowercase endpoint name
-                        manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
-                        manager = getattr(xero, manager_name)
-                        items = exporter.items(manager, latest=latest.pop(endpoint, None))
-
-                    for row in counter(items):
-                        file_path = tenant_path / exporter.name(row, split)
-                        files.write(
-                            row,
-                            file_path,
-                            append=update and exporter.supports_update,
+            try:
+                for endpoint in endpoints_list:
+                    try:
+                        exporter = EXPORTS[endpoint]
+                        counter = counter_manager.counter(
+                            desc=f'{tenant_name}: {endpoint}',
+                            unit='items exported',
                         )
 
-                        # download actual attachment file (always when attachments are exported)
+                        # special handling for attachments - needs full xero instance
                         if endpoint == 'Attachments':
-                            attachment_url = row.get('Url')
-                            if attachment_url:
-                                # remove .meta.json suffix to get actual file path
-                                actual_file_path = Path(str(file_path).replace('.meta.json', ''))
-                                try:
-                                    download_attachment(
-                                        attachment_url, credentials, actual_file_path
-                                    )
-                                except Exception as download_error:
-                                    logging.warning(
-                                        f'Failed to download attachment {attachment_url}: '
-                                        f'{download_error}'
-                                    )
+                            items = exporter.items_from_xero(xero)  # type: ignore[attr-defined]
+                        else:
+                            # get the manager name, defaulting to lowercase endpoint name
+                            manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
+                            manager = getattr(xero, manager_name)
+                            items = exporter.items(manager, latest=latest.pop(endpoint, None))
 
-                    if exporter.latest:
-                        latest[endpoint] = exporter.latest
-                    counter.refresh()
-                except Exception as e:
-                    e.add_note(f'while exporting {endpoint!r}')
-                    raise
+                        for row in counter(items):
+                            file_path = tenant_path / exporter.name(row, split)
+                            files.write(
+                                row,
+                                file_path,
+                                append=update and exporter.supports_update,
+                            )
+
+                            # write transaction data to CSV
+                            if endpoint in TRANSACTION_ENDPOINTS:
+                                csv_writer.write_item(row)
+
+                            # download actual attachment file (always when attachments are exported)
+                            if endpoint == 'Attachments':
+                                attachment_url = row.get('Url')
+                                if attachment_url:
+                                    # remove .meta.json suffix to get actual file path
+                                    actual_file_path = Path(
+                                        str(file_path).replace('.meta.json', '')
+                                    )
+                                    try:
+                                        download_attachment(
+                                            attachment_url, credentials, actual_file_path
+                                        )
+                                    except Exception as download_error:
+                                        logging.warning(
+                                            f'Failed to download attachment {attachment_url}: '
+                                            f'{download_error}'
+                                        )
+
+                        if exporter.latest:
+                            latest[endpoint] = exporter.latest
+                        counter.refresh()
+                    except Exception as e:
+                        e.add_note(f'while exporting {endpoint!r}')
+                        raise
+            finally:
+                # ensure CSV is closed even if export fails
+                csv_writer.close()
             latest.save(latest_path)
 
 

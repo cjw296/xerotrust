@@ -127,6 +127,14 @@ class TestExport:
                 ],
             },
         )
+        # Bills use the Invoices endpoint with Type=ACCPAY filter
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '1', 'where': 'Type=="ACCPAY"'},
+            reply=200,
+            response_json={'Status': 'OK', 'Invoices': []},
+        )
         pook.get(
             f"{XERO_API_URL}/CreditNotes",
             headers={'Xero-Tenant-Id': 't1'},
@@ -2443,3 +2451,169 @@ class TestExport:
                 # Note: latest.json should NOT exist because the export failed before completion
             }
         )
+
+    def test_csv_export_for_transactions(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        """Test that CSV files are created alongside JSONL for transaction entities."""
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # mock invoices endpoint
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv-1',
+                        'Type': 'ACCREC',
+                        'InvoiceNumber': 'INV-001',
+                        'Contact': {'ContactID': 'c1', 'Name': 'Customer 1'},
+                        'Date': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'Total': 120.0,
+                        'SubTotal': 100.0,
+                        'TotalTax': 20.0,
+                        'Status': 'PAID',
+                        'LineAmountTypes': 'Exclusive',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',
+                        'LineItems': [
+                            {
+                                'Description': 'Service 1',
+                                'Quantity': 1.0,
+                                'UnitAmount': 100.0,
+                                'LineAmount': 100.0,
+                                'AccountCode': '200',
+                                'TaxType': '20% VAT',
+                                'TaxAmount': 20.0,
+                            }
+                        ],
+                    },
+                    {
+                        'InvoiceID': 'inv-2',
+                        'Type': 'ACCPAY',
+                        'InvoiceNumber': 'BILL-001',
+                        'Contact': {'ContactID': 'c2', 'Name': 'Supplier 1'},
+                        'Date': '/Date(1672617600000+0000)/',  # 2023-01-02
+                        'Total': 60.0,
+                        'SubTotal': 50.0,
+                        'TotalTax': 10.0,
+                        'Status': 'AUTHORISED',
+                        'LineAmountTypes': 'Exclusive',
+                        'UpdatedDateUTC': '/Date(1672617600000+0000)/',
+                        'CreatedDateUTC': '/Date(1672617600000+0000)/',
+                        'LineItems': [
+                            {
+                                'Description': 'Materials',
+                                'Quantity': 1.0,
+                                'UnitAmount': 50.0,
+                                'LineAmount': 50.0,
+                                'AccountCode': '300',
+                                'TaxType': '20% VAT',
+                                'TaxAmount': 10.0,
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
+        # mock bank transactions endpoint
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '1', 'pageSize': '1000'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'BankTransactions': [
+                    {
+                        'BankTransactionID': 'bt-1',
+                        'Type': 'SPEND',
+                        'Contact': {'ContactID': 'c3', 'Name': 'Merchant 1'},
+                        'Date': '/Date(1672704000000+0000)/',  # 2023-01-03
+                        'Reference': 'REF-001',
+                        'Total': 25.0,
+                        'Status': 'AUTHORISED',
+                        'UpdatedDateUTC': '/Date(1672704000000+0000)/',
+                    }
+                ],
+            },
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+
+        # mock payments endpoint
+        pook.get(
+            f"{XERO_API_URL}/Payments",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Payments': [
+                    {
+                        'PaymentID': 'pay-1',
+                        'Invoice': {'InvoiceID': 'inv-1'},
+                        'Account': {'Code': 'ACC-001'},
+                        'Date': '/Date(1672790400000+0000)/',  # 2023-01-04
+                        'Amount': 120.0,
+                        'UpdatedDateUTC': '/Date(1672790400000+0000)/',
+                        'CreatedDateUTC': '/Date(1672790400000+0000)/',
+                    }
+                ],
+            },
+        )
+
+        run_cli(
+            tmp_path,
+            'export',
+            '--path',
+            str(tmp_path),
+            '--tenant',
+            't1',
+            'invoices',
+            'banktransactions',
+            'payments',
+        )
+
+        # verify CSV file was created
+        csv_path = tmp_path / 'Tenant 1' / 'Tenant 1_data.csv'
+        assert csv_path.exists(), f"CSV file should exist at {csv_path}"
+
+        # verify CSV contains data
+        import csv
+
+        with csv_path.open('r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        # should have 3 rows (2 invoices + 1 bank transaction + 1 payment)
+        compare(len(rows), expected=4)
+
+        # verify invoice row
+        invoice_row = rows[0]
+        compare(invoice_row['Type'], expected='ACCREC')
+        compare(invoice_row['InvoiceNumber'], expected='INV-001')
+        compare(invoice_row['Contact.Name'], expected='Customer 1')
+        compare(invoice_row['LineItem.Description'], expected='Service 1')
+
+        # verify second invoice row (ACCPAY)
+        bill_row = rows[1]
+        compare(bill_row['Type'], expected='ACCPAY')
+        compare(bill_row['InvoiceNumber'], expected='BILL-001')
+
+        # verify bank transaction row
+        bt_row = rows[2]
+        compare(bt_row['Type'], expected='SPEND')
+        compare(bt_row['Reference'], expected='REF-001')
+
+        # verify JSONL files also exist (CSV is written alongside JSONL, not instead of)
+        assert (tmp_path / 'Tenant 1' / 'invoices.jsonl').exists()
+        assert (tmp_path / 'Tenant 1' / 'payments.jsonl').exists()
