@@ -18,7 +18,7 @@ from xero import Xero
 from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
-from .export import EXPORTS, FileManager, Split, LatestData
+from .export import EXPORTS, FileManager, Split, LatestData, download_attachment
 from .reconcile import RECONCILERS, AccountTotals
 from .transform import TRANSFORMERS, show
 
@@ -212,6 +212,12 @@ def explore(
     default=False,
     help='Update the existing export where possible, rather than re-exporting and overwriting',
 )
+@click.option(
+    '--download-attachments',
+    is_flag=True,
+    default=False,
+    help='Download actual attachment files (not just metadata). This can use significant bandwidth and storage.',
+)
 @click.pass_obj
 def export(
     auth_path: Path,
@@ -220,6 +226,7 @@ def export(
     path: Path,
     split: Split,
     update: bool,
+    download_attachments: bool,
 ) -> None:
     """Export data from Xero API endpoints."""
     credentials = credentials_from_file(auth_path)
@@ -231,6 +238,15 @@ def export(
 
     if not endpoints:
         endpoints = EXPORTS.keys()
+
+    # filter out attachments if download flag not set
+    endpoints_list = list(endpoints)
+    if not download_attachments and 'Attachments' in endpoints_list:
+        endpoints_list.remove('Attachments')
+    # ensure attachments are exported last to prioritize main data
+    elif 'Attachments' in endpoints_list:
+        endpoints_list.remove('Attachments')
+        endpoints_list.append('Attachments')
 
     with FileManager(serializer=TRANSFORMERS['json']) as files:
         for tenant_id in tenant_ids:
@@ -248,7 +264,7 @@ def export(
             endpoint_manager_map = {
                 'Bills': 'invoices',  # bills use the invoices endpoint with Type=ACCPAY filter
             }
-            for endpoint in endpoints:
+            for endpoint in endpoints_list:
                 try:
                     exporter = EXPORTS[endpoint]
                     counter = counter_manager.counter(
@@ -258,7 +274,7 @@ def export(
 
                     # special handling for attachments - needs full xero instance
                     if endpoint == 'Attachments':
-                        items = exporter.items_from_xero(xero)
+                        items = exporter.items_from_xero(xero)  # type: ignore[attr-defined]
                     else:
                         # get the manager name, defaulting to lowercase endpoint name
                         manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
@@ -266,11 +282,29 @@ def export(
                         items = exporter.items(manager, latest=latest.pop(endpoint, None))
 
                     for row in counter(items):
+                        file_path = tenant_path / exporter.name(row, split)
                         files.write(
                             row,
-                            tenant_path / exporter.name(row, split),
+                            file_path,
                             append=update and exporter.supports_update,
                         )
+
+                        # download actual attachment file (always when attachments are exported)
+                        if endpoint == 'Attachments':
+                            attachment_url = row.get('Url')
+                            if attachment_url:
+                                # remove .meta.json suffix to get actual file path
+                                actual_file_path = Path(str(file_path).replace('.meta.json', ''))
+                                try:
+                                    download_attachment(
+                                        attachment_url, credentials, actual_file_path
+                                    )
+                                except Exception as download_error:
+                                    logging.warning(
+                                        f'Failed to download attachment {attachment_url}: '
+                                        f'{download_error}'
+                                    )
+
                     if exporter.latest:
                         latest[endpoint] = exporter.latest
                     counter.refresh()

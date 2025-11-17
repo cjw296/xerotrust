@@ -8,6 +8,7 @@ from pathlib import Path
 from time import sleep
 from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar, cast
 
+import requests
 from xero.exceptions import XeroRateLimitExceeded
 
 from xerotrust.transform import DateTimeEncoder
@@ -104,6 +105,20 @@ def retry_on_rate_limit[T, **P](
             seconds = int(e.response.headers['retry-after'])
             logging.warning(f'Rate limit exceeded, waiting {seconds} seconds')
             sleep(seconds)
+
+
+def download_attachment(url: str, credentials: Any, output_path: Path) -> None:
+    """Download an attachment file from Xero API with authentication."""
+    # ensure parent directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # use the credentials' OAuth session to make authenticated request
+    response = credentials.oauth.get(url)
+    response.raise_for_status()
+
+    # write binary content to file
+    output_path.write_bytes(response.content)
+    logging.info(f'downloaded attachment to: {output_path}')
 
 
 @dataclass
@@ -327,15 +342,32 @@ class AttachmentsExport(StaticExport):
         'Quotes': 'QuoteID',
     }
 
+    # map endpoint names to their human-readable identifier fields
+    endpoint_display_fields: ClassVar[dict[str, str]] = {
+        'Invoices': 'InvoiceNumber',
+        'CreditNotes': 'CreditNoteNumber',
+        'BankTransactions': 'Reference',
+        'BankTransfers': 'Reference',
+        'Contacts': 'Name',
+        'Accounts': 'Code',
+        'ManualJournals': 'ManualJournalID',  # no better field available
+        'PurchaseOrders': 'PurchaseOrderNumber',
+        'Quotes': 'QuoteNumber',
+    }
+
     def name(self, item: dict[str, Any], split: Split) -> str:
         endpoint = item.get('Endpoint', 'unknown')
-        entity_id = item.get('EntityID', 'unknown')
+        # use human-readable display ID if available, otherwise fall back to entity ID
+        display_id = item.get('DisplayID', item.get('EntityID', 'unknown'))
         filename = item.get('FileName', 'unknown')
-        # sanitize filename for filesystem
+        # sanitize identifiers for filesystem
+        safe_display_id = "".join(
+            c for c in str(display_id) if c.isalnum() or c in (' ', '.', '_', '-')
+        ).rstrip()
         safe_filename = "".join(
             c for c in filename if c.isalnum() or c in (' ', '.', '_', '-')
         ).rstrip()
-        return f'attachments/{endpoint.lower()}/{entity_id}/{safe_filename}.meta.json'
+        return f'attachments/{endpoint.lower()}/{safe_display_id}/{safe_filename}.meta.json'
 
     def items_from_xero(self, xero: Any) -> Iterable[dict[str, Any]]:
         """
@@ -346,6 +378,7 @@ class AttachmentsExport(StaticExport):
             try:
                 manager = getattr(xero, endpoint.lower())
                 id_field = self.endpoint_id_fields[endpoint]
+                display_field = self.endpoint_display_fields[endpoint]
 
                 # get all items from this endpoint
                 items = retry_on_rate_limit(manager.all)
@@ -358,6 +391,9 @@ class AttachmentsExport(StaticExport):
                     entity_id = item.get(id_field)
                     if not entity_id:
                         continue
+
+                    # get human-readable display ID for better file organization
+                    display_id = item.get(display_field, entity_id)
 
                     # get attachments for this entity
                     try:
@@ -387,6 +423,7 @@ class AttachmentsExport(StaticExport):
                             attachment_data = {
                                 'Endpoint': endpoint,
                                 'EntityID': entity_id,
+                                'DisplayID': display_id,
                                 **attachment,
                             }
                             yield attachment_data
