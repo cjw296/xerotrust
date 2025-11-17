@@ -53,3 +53,27 @@ Category               Exports
 **Files**              Attachments from Invoices, Bills, Bank Transactions, Contacts,
                        and other supported entities
 =====================  ====================================================================
+
+Attachment Downloads
+--------------------
+
+By default, xerotrust exports core accounting data **without** downloading attachments.
+This ensures fast exports and avoids unexpected bandwidth or storage usage.
+
+To download attachments along with their metadata:
+
+.. code-block:: bash
+
+    # Export without attachments (default - fast)
+    uv run xerotrust export
+
+    # Export WITH attachments (downloads metadata + actual files)
+    uv run xerotrust export --download-attachments
+
+**Important Notes:**
+
+- Attachments are always exported **last** to prioritize core accounting data
+- When ``--download-attachments`` is used, both metadata and actual files are downloaded
+- Attachments are organized using human-readable identifiers (e.g., invoice numbers, contact names)
+  instead of GUIDs for easier navigation
+- Example structure: ``attachments/invoices/INV-001/receipt.pdf``
