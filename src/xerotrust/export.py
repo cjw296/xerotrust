@@ -246,7 +246,7 @@ class BillsExport(Export):
         while True:
             kwargs: dict[str, Any] = {
                 'page': page,
-                'where': 'Type=="ACCPAY"',
+                'Type': 'ACCPAY',
             }
             if latest is not None:
                 kwargs['since'] = cast(datetime, latest['UpdatedDateUTC'])
