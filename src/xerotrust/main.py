@@ -1,7 +1,6 @@
 import csv
 import json
 import logging
-import os
 import time
 from collections import deque, defaultdict
 from datetime import date
@@ -83,8 +82,6 @@ def login(auth_path: Path, client_id: str) -> None:
             }
         )
     )
-    # set file permissions to 600 (owner read/write only)
-    os.chmod(auth_path, 0o600)
 
 
 def transform_options(func: Any) -> Any:
@@ -241,16 +238,13 @@ def export(
         tenant_ids = all_tenant_data.keys()
 
     if not endpoints:
-        endpoints = EXPORTS.keys()
+        # when no specific endpoints requested, exclude Attachments unless flag is set
+        if download_attachments:
+            endpoints = EXPORTS.keys()
+        else:
+            endpoints = [e for e in EXPORTS.keys() if e != 'Attachments']
 
-    # filter out attachments if download flag not set
     endpoints_list = list(endpoints)
-    if not download_attachments and 'Attachments' in endpoints_list:
-        endpoints_list.remove('Attachments')
-    # ensure attachments are exported last to prioritize main data
-    elif 'Attachments' in endpoints_list:
-        endpoints_list.remove('Attachments')
-        endpoints_list.append('Attachments')
 
     with FileManager(serializer=TRANSFORMERS['json']) as files:
         for tenant_id in tenant_ids:
@@ -271,6 +265,7 @@ def export(
             # map export names to xero manager names
             endpoint_manager_map = {
                 'Bills': 'invoices',  # bills use the invoices endpoint with Type=ACCPAY filter
+                'Attachments': xero,  # attachments need the full xero instance
             }
             try:
                 for endpoint in endpoints_list:
@@ -281,14 +276,14 @@ def export(
                             unit='items exported',
                         )
 
-                        # special handling for attachments - needs full xero instance
-                        if endpoint == 'Attachments':
-                            items = exporter.items_from_xero(xero)  # type: ignore[attr-defined]
-                        else:
-                            # get the manager name, defaulting to lowercase endpoint name
-                            manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
+                        # get the manager, defaulting to lowercase endpoint name
+                        # for Attachments, we pass the full xero instance
+                        manager_name = endpoint_manager_map.get(endpoint, endpoint.lower())
+                        if isinstance(manager_name, str):
                             manager = getattr(xero, manager_name)
-                            items = exporter.items(manager, latest=latest.pop(endpoint, None))
+                        else:
+                            manager = manager_name  # already resolved (e.g., xero instance for Attachments)
+                        items = exporter.items(manager, latest=latest.pop(endpoint, None))
 
                         for row in counter(items):
                             file_path = tenant_path / exporter.name(row, split)
@@ -304,20 +299,24 @@ def export(
 
                             # download actual attachment file (always when attachments are exported)
                             if endpoint == 'Attachments':
-                                attachment_url = row.get('Url')
-                                if attachment_url:
+                                entity_endpoint = row.get('Endpoint')
+                                entity_id = row.get('EntityID')
+                                filename = row.get('FileName')
+                                if entity_endpoint and entity_id and filename:
                                     # remove .meta.json suffix to get actual file path
                                     actual_file_path = Path(
                                         str(file_path).replace('.meta.json', '')
                                     )
+                                    # get the manager for the entity's endpoint
+                                    entity_manager = getattr(xero, entity_endpoint.lower())
                                     try:
                                         download_attachment(
-                                            attachment_url, credentials, actual_file_path
+                                            entity_manager, entity_id, filename, actual_file_path
                                         )
                                     except Exception as download_error:
                                         logging.warning(
-                                            f'Failed to download attachment {attachment_url}: '
-                                            f'{download_error}'
+                                            f'Failed to download attachment {filename} for '
+                                            f'{entity_endpoint} {entity_id}: {download_error}'
                                         )
 
                         if exporter.latest:

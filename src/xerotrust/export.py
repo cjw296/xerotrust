@@ -107,17 +107,16 @@ def retry_on_rate_limit[T, **P](
             sleep(seconds)
 
 
-def download_attachment(url: str, credentials: Any, output_path: Path) -> None:
-    """Download an attachment file from Xero API with authentication."""
+def download_attachment(manager: Any, entity_id: str, filename: str, output_path: Path) -> None:
+    """Download an attachment file from Xero API using pyxero's get_attachment_data method."""
     # ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # use the credentials' OAuth session to make authenticated request
-    response = credentials.oauth.get(url)
-    response.raise_for_status()
+    # use pyxero's built-in attachment download method
+    content = manager.get_attachment_data(entity_id, filename)
 
     # write binary content to file
-    output_path.write_bytes(response.content)
+    output_path.write_bytes(content)
     logging.info(f'downloaded attachment to: {output_path}')
 
 
@@ -369,11 +368,14 @@ class AttachmentsExport(StaticExport):
         ).rstrip()
         return f'attachments/{endpoint.lower()}/{safe_display_id}/{safe_filename}.meta.json'
 
-    def items_from_xero(self, xero: Any) -> Iterable[dict[str, Any]]:
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
         """
         Iterate through all supported endpoints and export attachments.
-        This method should be called directly from export command with xero instance.
+        For AttachmentsExport, the manager parameter should be the full Xero instance.
         """
+        xero = manager  # for attachments, we need the full xero instance
         for endpoint in self.supported_endpoints:
             try:
                 manager = getattr(xero, endpoint.lower())
@@ -437,15 +439,6 @@ class AttachmentsExport(StaticExport):
             except Exception as e:
                 logging.warning(f'Failed to process attachments for {endpoint}: {e}')
                 continue
-
-    def _raw_items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
-    ) -> Iterable[dict[str, Any]]:
-        # this method won't be used for attachments - see items_from_xero instead
-        logging.info(
-            'AttachmentsExport.items_from_xero() should be called directly with xero instance'
-        )
-        return iter([])
 
 
 EXPORTS = {

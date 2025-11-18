@@ -23,15 +23,6 @@ Documentation
 
 Full documentation is available at https://xerotrust.readthedocs.io/en/latest/
 
-**Quick Start:** https://xerotrust.readthedocs.io/en/latest/
-
-Key resources:
-
-- `Installation Guide <https://xerotrust.readthedocs.io/en/latest/installation.html>`_
-- `Command Reference <https://xerotrust.readthedocs.io/en/latest/commands.html>`_
-- `API Documentation <https://xerotrust.readthedocs.io/en/latest/api.html>`_
-- `GitHub Repository <https://github.com/cjw296/xerotrust>`_
-
 Supported Exports
 -----------------
 

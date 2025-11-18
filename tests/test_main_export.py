@@ -2617,3 +2617,366 @@ class TestExport:
         # verify JSONL files also exist (CSV is written alongside JSONL, not instead of)
         assert (tmp_path / 'Tenant 1' / 'invoices.jsonl').exists()
         assert (tmp_path / 'Tenant 1' / 'payments.jsonl').exists()
+
+    def test_export_attachments_metadata(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # mock invoice endpoint with attachment
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv1',
+                        'InvoiceNumber': 'INV-001',
+                        'Type': 'ACCREC',
+                        'HasAttachments': True,
+                        'Date': '/Date(1672531200000+0000)/',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',
+                    }
+                ],
+            },
+        )
+
+        # mock get_attachments for invoice (note trailing slash)
+        pook.get(
+            f"{XERO_API_URL}/Invoices/inv1/Attachments/",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Attachments': [
+                    {
+                        'AttachmentID': 'att1',
+                        'FileName': 'receipt.pdf',
+                        'Url': f"{XERO_API_URL}/Invoices/inv1/Attachments/receipt.pdf",
+                        'MimeType': 'application/pdf',
+                        'ContentLength': 12345,
+                    }
+                ],
+            },
+        )
+
+        # mock other endpoints that AttachmentsExport will check for attachments
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/CreditNotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'CreditNotes': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransfers",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransfers': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Accounts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'ManualJournals': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/PurchaseOrders",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'PurchaseOrders': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Quotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Quotes': []},
+        )
+
+        result = run_cli(
+            tmp_path / '.xerotrust.json',
+            'export',
+            'Attachments',
+            '--path',
+            str(tmp_path),
+        )
+
+        # verify attachment metadata file was created
+        attachment_meta = (
+            tmp_path / 'Tenant 1' / 'attachments' / 'invoices' / 'INV-001' / 'receipt.pdf.meta.json'
+        )
+        assert attachment_meta.exists()
+        attachment_data = json.loads(attachment_meta.read_text())
+        compare(attachment_data['Endpoint'], expected='Invoices')
+        compare(attachment_data['EntityID'], expected='inv1')
+        compare(attachment_data['DisplayID'], expected='INV-001')
+        compare(attachment_data['FileName'], expected='receipt.pdf')
+        compare(attachment_data['MimeType'], expected='application/pdf')
+
+    def test_export_attachments_with_download(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # mock invoice endpoint with attachment
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv1',
+                        'InvoiceNumber': 'INV-001',
+                        'Type': 'ACCREC',
+                        'HasAttachments': True,
+                        'Date': '/Date(1672531200000+0000)/',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',
+                    }
+                ],
+            },
+        )
+
+        # mock get_attachments for invoice (note trailing slash)
+        pook.get(
+            f"{XERO_API_URL}/Invoices/inv1/Attachments/",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Attachments': [
+                    {
+                        'AttachmentID': 'att1',
+                        'FileName': 'receipt.pdf',
+                        'Url': f"{XERO_API_URL}/Invoices/inv1/Attachments/receipt.pdf",
+                        'MimeType': 'application/pdf',
+                        'ContentLength': 12345,
+                    }
+                ],
+            },
+        )
+
+        # mock actual attachment file download
+        pook.get(
+            f"{XERO_API_URL}/Invoices/inv1/Attachments/receipt.pdf",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_body=b'PDF file content',
+            response_headers={'Content-Type': 'application/pdf'},
+        )
+
+        # mock other endpoints that AttachmentsExport will check for attachments
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/CreditNotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'CreditNotes': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransfers",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransfers': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Accounts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'ManualJournals': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/PurchaseOrders",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'PurchaseOrders': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Quotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Quotes': []},
+        )
+
+        result = run_cli(
+            tmp_path / '.xerotrust.json',
+            'export',
+            'Attachments',
+            '--path',
+            str(tmp_path),
+            '--download-attachments',
+        )
+
+        # verify attachment metadata file was created
+        attachment_meta = (
+            tmp_path / 'Tenant 1' / 'attachments' / 'invoices' / 'INV-001' / 'receipt.pdf.meta.json'
+        )
+        assert attachment_meta.exists()
+
+        # verify actual file was downloaded
+        attachment_file = (
+            tmp_path / 'Tenant 1' / 'attachments' / 'invoices' / 'INV-001' / 'receipt.pdf'
+        )
+        assert attachment_file.exists()
+        compare(attachment_file.read_bytes(), expected=b'PDF file content')
+
+    def test_export_attachments_download_failure(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        # mock invoice endpoint with attachment
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Invoices': [
+                    {
+                        'InvoiceID': 'inv1',
+                        'InvoiceNumber': 'INV-001',
+                        'Type': 'ACCREC',
+                        'HasAttachments': True,
+                        'Date': '/Date(1672531200000+0000)/',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',
+                    }
+                ],
+            },
+        )
+
+        # mock get_attachments for invoice (note trailing slash)
+        pook.get(
+            f"{XERO_API_URL}/Invoices/inv1/Attachments/",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Attachments': [
+                    {
+                        'AttachmentID': 'att1',
+                        'FileName': 'receipt.pdf',
+                        'Url': f"{XERO_API_URL}/Invoices/inv1/Attachments/receipt.pdf",
+                        'MimeType': 'application/pdf',
+                        'ContentLength': 12345,
+                    }
+                ],
+            },
+        )
+
+        # mock attachment download failure (404)
+        pook.get(
+            f"{XERO_API_URL}/Invoices/inv1/Attachments/receipt.pdf",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=404,
+            response_json={'Status': 'ERROR', 'Message': 'Attachment not found'},
+        )
+
+        # mock other endpoints that AttachmentsExport will check for attachments
+        pook.get(
+            f"{XERO_API_URL}/Contacts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Contacts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/CreditNotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'CreditNotes': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransactions",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransactions': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/BankTransfers",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'BankTransfers': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Accounts': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'ManualJournals': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/PurchaseOrders",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'PurchaseOrders': []},
+        )
+        pook.get(
+            f"{XERO_API_URL}/Quotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={'Status': 'OK', 'Quotes': []},
+        )
+
+        # export should succeed even if attachment download fails
+        result = run_cli(
+            tmp_path / '.xerotrust.json',
+            'export',
+            'Attachments',
+            '--path',
+            str(tmp_path),
+            '--download-attachments',
+        )
+
+        # verify attachment metadata file was created
+        attachment_meta = (
+            tmp_path / 'Tenant 1' / 'attachments' / 'invoices' / 'INV-001' / 'receipt.pdf.meta.json'
+        )
+        assert attachment_meta.exists()
+
+        # verify actual file was NOT downloaded (due to 404 error)
+        attachment_file = (
+            tmp_path / 'Tenant 1' / 'attachments' / 'invoices' / 'INV-001' / 'receipt.pdf'
+        )
+        assert not attachment_file.exists()
