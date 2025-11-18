@@ -136,6 +136,13 @@ class TestExport:
             response_json={'Status': 'OK', 'Invoices': []},
         )
         pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'where': 'Type=="ACCPAY"'},
+            reply=200,
+            response_json={'Status': 'OK', 'Invoices': []},
+        )
+        pook.get(
             f"{XERO_API_URL}/CreditNotes",
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
