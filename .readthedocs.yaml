@@ -10,11 +10,7 @@ build:
        - asdf install uv latest
        - asdf global uv latest
     install:
-       - echo 'nothing to do'
+       - uv sync --group docs
     build:
-       html:
-            - uv run --group docs sphinx-build -T -b html docs $READTHEDOCS_OUTPUT/html
-
-sphinx:
-  configuration: docs/conf.py
-  fail_on_warning: true
+      html:
+       - uv run sphinx-build --fail-on-warning -T -b html docs $READTHEDOCS_OUTPUT/html
