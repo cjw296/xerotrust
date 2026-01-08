@@ -1,5 +1,14 @@
 .. include:: ../README.rst
 
+.. note::
+
+  This tool makes use of the Xero API Journals endpoint in order to extract the
+  raw data from the Xero general ledger. To access this you will need to register your own
+  app within the Xero developer portal. Xero has announced a new pricing structure that
+  will take effect 2 March 2026. Under the new pricing tiers access to Journals endpoint
+  will only be available to apps that are on their advanced tier.
+  We would suggest contacting api@xero.com with any questions.
+
 .. _quickstart:
 
 Quickstart
