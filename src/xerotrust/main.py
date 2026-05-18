@@ -288,7 +288,7 @@ def check(endpoint: str, paths: tuple[Path, ...]) -> None:
     deque(stream, maxlen=0)
 
 
-class KeyValueType(click.ParamType):
+class KeyValueType(click.ParamType[list[str]]):
     name = 'key=value'
 
     def convert(
