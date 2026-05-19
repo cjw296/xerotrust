@@ -85,3 +85,6 @@ quote-style = "preserve"
 exclude_also = [
     "\\.\\.\\.",
 ]
+
+[tool.coverage.run]
+source = ["xerotrust", "tests"]
