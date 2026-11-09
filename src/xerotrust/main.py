@@ -16,6 +16,8 @@ from xero import Xero
 
 from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
+from .assets import command as export_assets_command
+from .files import command as export_files_command
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
 from .reconcile import RECONCILERS, AccountTotals
@@ -45,7 +47,8 @@ def cli(ctx: click.Context, auth_path: Path, log_level: str | None) -> None:
 @cli.command()
 @click.pass_obj
 @click.option('--client-id', default="")
-def login(auth_path: Path, client_id: str) -> None:
+@click.option('--assets', is_flag=True, help='Also request read-only access to fixed assets.')
+def login(auth_path: Path, client_id: str, assets: bool) -> None:
     """Authenticate with Xero and store credentials."""
     if not client_id:
         client_id = click.prompt(
@@ -59,7 +62,11 @@ def login(auth_path: Path, client_id: str) -> None:
         raise click.ClickException(f'No Client ID provided or found in {auth_path}.')
 
     now = time.time()
-    credentials = authenticate(client_id)
+    credentials = (
+        authenticate(client_id, extra_scopes=('assets.read',))
+        if assets
+        else authenticate(client_id)
+    )
     if 'expires_in' in credentials.token and 'expires_at' not in credentials.token:
         credentials.token['expires_at'] = now + credentials.token['expires_in']
 
@@ -78,6 +85,11 @@ def login(auth_path: Path, client_id: str) -> None:
             }
         )
     )
+    auth_path.chmod(0o600)
+
+
+cli.add_command(export_assets_command)
+cli.add_command(export_files_command)
 
 
 def transform_options(func: Any) -> Any:

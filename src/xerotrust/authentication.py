@@ -82,13 +82,15 @@ async def callback(
     return templates.TemplateResponse(request=request, name="success.html")
 
 
-async def _authenticate(client_id: str, host: str, port: int) -> OAuth2PKCECredentials:
+async def _authenticate(
+    client_id: str, host: str, port: int, extra_scopes: tuple[str, ...] = ()
+) -> OAuth2PKCECredentials:
     credentials = OAuth2PKCECredentials(
         client_id,
         client_secret="PLACEHOLDER",
         port=port,
         callback_uri=f"http://{host}:{port}/",
-        scope=SCOPES,
+        scope=[*SCOPES, *extra_scopes],
     )
     credentials_context.set(credentials)
     challenge = str(
@@ -111,14 +113,18 @@ async def _authenticate(client_id: str, host: str, port: int) -> OAuth2PKCECrede
 
 
 def authenticate(
-    client_id: str, host: str = "localhost", port: int = 12010
+    client_id: str,
+    host: str = "localhost",
+    port: int = 12010,
+    extra_scopes: tuple[str, ...] = (),
 ) -> OAuth2PKCECredentials:
-    return asyncio.run(_authenticate(client_id, host, port))
+    return asyncio.run(_authenticate(client_id, host, port, extra_scopes))
 
 
 def credentials_from_file(path: Path) -> OAuth2PKCECredentials:
     data = json.loads(path.read_text())
-    credentials = OAuth2PKCECredentials(**data, scope=SCOPES)
+    # Refresh with the granted scopes, including explicitly authorised optional APIs.
+    credentials = OAuth2PKCECredentials(**data, scope=data['token'].get('scope', SCOPES))
     credentials._init_oauth(data['token'])
     if credentials.expired():
         try:

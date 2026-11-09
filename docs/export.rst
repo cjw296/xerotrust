@@ -104,8 +104,46 @@ __ https://jsonlines.org/
 For the complete file structure, see :doc:`usage`.
 
 
+Fixed assets
+------------
+
+After creating a fresh accounting export, run ``xerotrust export-assets --path PATH``
+to add the fixed-asset register, asset types and settings to each exported tenant.
+First run ``xerotrust login --assets`` to grant ``assets.read`` alongside the existing
+accounting scopes. Granting this scope is optional; the normal accounting export is unchanged.
+
+All three asset statuses (draft, registered and disposed) are paged and checked against
+the API's advertised totals. Each asset is then fetched individually because collection
+responses omit fields such as descriptions and original-invoice links. Complete JSON
+responses are preserved under ``fixed-assets/``.
+A manifest containing counts and SHA-256 hashes is written only after all requests succeed.
+Missing permissions, changed pagination, duplicate IDs or request failures make the command
+fail. Run it in staging and validate its manifest before publishing a backup.
+
+The register reflects what the Assets API exposes; it is not a complete organisation
+restore procedure or an export of reports and asset document attachments.
+
 What can be exported
 --------------------
+
+.. note::
+
+   ``xerotrust export-files --path PATH --cache CACHE`` adds uploaded files and
+   their document associations from the Files API, including the inbox. The cache
+   must be private and outside the export. Preserve it across failures and daily
+   quota resets. ``--reserve-requests 200`` leaves API capacity for other work.
+
+   Each binary is stored under its UUID, with the original name and complete
+   metadata in ``files/index.json``. Sizes are checked during streaming, and
+   SHA-256 hashes cover both cached content and exported files. Cached binaries
+   are reused only when metadata and local hashes match. Associations are refreshed
+   for every completed export cycle. A quota-limited cycle can span several days;
+   the manifest records its time range and the index records individual check times.
+   This is not an atomic point-in-time view of a changing Xero organisation.
+
+   A missing ``files/manifest.json`` means the export is incomplete, even if some
+   binaries exist. Do not publish it as a completed backup. Daily quota exhaustion
+   stops the command without waiting all day; the next invocation resumes the cycle.
 
 Export of the following types of content has been implemented:
 
