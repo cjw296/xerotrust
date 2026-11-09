@@ -111,6 +111,7 @@ class TestExport:
         )
         pook.get(
             f"{XERO_API_URL}/Invoices",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -128,7 +129,15 @@ class TestExport:
             },
         )
         pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'Invoices': []},
+        )
+        pook.get(
             f"{XERO_API_URL}/CreditNotes",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -144,6 +153,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/CreditNotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'CreditNotes': []},
         )
         pook.get(
             f"{XERO_API_URL}/Currencies",
@@ -177,6 +193,7 @@ class TestExport:
         )
         pook.get(
             f"{XERO_API_URL}/ManualJournals",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -191,6 +208,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'ManualJournals': []},
         )
         pook.get(
             f"{XERO_API_URL}/Organisations",
@@ -479,6 +503,7 @@ class TestExport:
 
         pook.get(
             f"{XERO_API_URL}/Invoices",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -494,6 +519,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/Invoices",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'Invoices': []},
         )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'invoices')
@@ -511,6 +543,7 @@ class TestExport:
 
         pook.get(
             f"{XERO_API_URL}/CreditNotes",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -526,6 +559,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/CreditNotes",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'CreditNotes': []},
         )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'creditnotes')
@@ -601,6 +641,7 @@ class TestExport:
 
         pook.get(
             f"{XERO_API_URL}/ManualJournals",
+            params={'page': '1', 'pageSize': '1000'},
             headers={'Xero-Tenant-Id': 't1'},
             reply=200,
             response_json={
@@ -615,6 +656,13 @@ class TestExport:
                     }
                 ],
             },
+        )
+        pook.get(
+            f"{XERO_API_URL}/ManualJournals",
+            headers={'Xero-Tenant-Id': 't1'},
+            params={'page': '2', 'pageSize': '1000'},
+            reply=200,
+            response_json={'Status': 'OK', 'ManualJournals': []},
         )
 
         run_cli(tmp_path, 'export', '--path', str(tmp_path), '--tenant', 't1', 'manualjournals')
