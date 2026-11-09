@@ -129,8 +129,9 @@ def port() -> int:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('extra_scopes', [(), ('assets.read',)])
 async def test_async_authenticate_success(
-    pook: Any, port: int, capsys: pytest.CaptureFixture[str]
+    pook: Any, port: int, capsys: pytest.CaptureFixture[str], extra_scopes: tuple[str, ...]
 ) -> None:
     pook.enable_network("127.0.0.1")
     secret = "EXAMPLE_CLIENT_SECRET"
@@ -152,7 +153,9 @@ async def test_async_authenticate_success(
         # Make sure we get a stable state token:
         replace_in_module(generate_token, lambda: "mock_token", module=oauth2_session),
     ):
-        task = asyncio.create_task(_authenticate(secret, host="127.0.0.1", port=port))
+        task = asyncio.create_task(
+            _authenticate(secret, host="127.0.0.1", port=port, extra_scopes=extra_scopes)
+        )
         await asyncio.sleep(0.1)
         async with httpx.AsyncClient() as client:
             response = await client.get(f"http://127.0.0.1:{port}/?code=test_code&state=mock_token")
@@ -165,7 +168,7 @@ async def test_async_authenticate_success(
         expected=Comparison(
             OAuth2PKCECredentials,
             auth_state="mock_token",
-            scope=SCOPES,
+            scope=[*SCOPES, *extra_scopes],
             client_secret="PLACEHOLDER",
             client_id=secret,
             port=port,
@@ -212,7 +215,7 @@ def test_authenticate() -> None:
     compare(
         mock.mock_calls,
         expected=[
-            call._authenticate("secret", "localhost", 12010),
+            call._authenticate("secret", "localhost", 12010, ()),
             call.asyncio_run(credentials),
         ],
     )
@@ -244,8 +247,13 @@ class TestCredentialsFromFile:
         compare(credentials.client_secret, expected=auth_data['client_secret'])
         compare(credentials.token, expected=auth_data['token'])
 
-    def test_load_expired_credentials_refresh_success(self, tmp_path: Path, pook: Any) -> None:
+    @pytest.mark.parametrize('assets', [False, True])
+    def test_load_expired_credentials_refresh_success(
+        self, tmp_path: Path, pook: Any, assets: bool
+    ) -> None:
         auth_data = self.make_auth_data(expires_at=time.time() - 1)
+        if assets:
+            auth_data['token']['scope'] = [*SCOPES, 'assets.read']
         auth_path = tmp_path / "auth.json"
         auth_path.write_text(json.dumps(auth_data))
 
@@ -254,7 +262,7 @@ class TestCredentialsFromFile:
             'refresh_token': 'new_refresh_token',
             # if expires_in is in here, here oauthlib populates expires_at from it!
             'expires_at': 1234.5678,
-            'scope': SCOPES,
+            'scope': auth_data['token']['scope'],
         }
         # Mock the refresh token endpoint
         (

@@ -104,6 +104,25 @@ __ https://jsonlines.org/
 For the complete file structure, see :doc:`usage`.
 
 
+Fixed assets
+------------
+
+After creating a fresh accounting export, run ``xerotrust export-assets --path PATH``
+to add the fixed-asset register, asset types and settings to each exported tenant.
+First run ``xerotrust login --assets`` to grant ``assets.read`` alongside the existing
+accounting scopes. Granting this scope is optional; the normal accounting export is unchanged.
+
+All three asset statuses (draft, registered and disposed) are paged and checked against
+the API's advertised totals. Each asset is then fetched individually because collection
+responses omit fields such as descriptions and original-invoice links. Complete JSON
+responses are preserved under ``fixed-assets/``.
+A manifest containing counts and SHA-256 hashes is written only after all requests succeed.
+Missing permissions, changed pagination, duplicate IDs or request failures make the command
+fail. Run it in staging and validate its manifest before publishing a backup.
+
+The register reflects what the Assets API exposes; it is not a complete organisation
+restore procedure or an export of reports and asset document attachments.
+
 What can be exported
 --------------------
 
