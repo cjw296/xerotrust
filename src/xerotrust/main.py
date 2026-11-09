@@ -17,6 +17,7 @@ from xero import Xero
 from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .assets import command as export_assets_command
+from .files import command as export_files_command
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
 from .reconcile import RECONCILERS, AccountTotals
@@ -88,6 +89,7 @@ def login(auth_path: Path, client_id: str, assets: bool) -> None:
 
 
 cli.add_command(export_assets_command)
+cli.add_command(export_files_command)
 
 
 def transform_options(func: Any) -> Any:

@@ -124,6 +124,25 @@ restore procedure or an export of reports and asset document attachments.
 What can be exported
 --------------------
 
+.. note::
+
+   ``xerotrust export-files --path PATH --cache CACHE`` adds uploaded files and
+   their document associations from the Files API, including the inbox. The cache
+   must be private and outside the export. Preserve it across failures and daily
+   quota resets. ``--reserve-requests 200`` leaves API capacity for other work.
+
+   Each binary is stored under its UUID, with the original name and complete
+   metadata in ``files/index.json``. Sizes are checked during streaming, and
+   SHA-256 hashes cover both cached content and exported files. Cached binaries
+   are reused only when metadata and local hashes match. Associations are refreshed
+   for every completed export cycle. A quota-limited cycle can span several days;
+   the manifest records its time range and the index records individual check times.
+   This is not an atomic point-in-time view of a changing Xero organisation.
+
+   A missing ``files/manifest.json`` means the export is incomplete, even if some
+   binaries exist. Do not publish it as a completed backup. Daily quota exhaustion
+   stops the command without waiting all day; the next invocation resumes the cycle.
+
 Export of the following types of content has been implemented:
 
 **Core Accounting Data:**
