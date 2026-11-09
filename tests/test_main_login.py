@@ -33,6 +33,13 @@ pytestmark = pytest.mark.usefixtures("mock_credentials_from_file")
 
 
 class TestLogin:
+    def test_login_with_assets(self, mock_authenticate: Mock, tmp_path: Path, pook: Any) -> None:
+        auth = tmp_path / 'auth.json'
+        add_tenants_response(pook)
+        run_cli(auth, 'login', '--client-id', 'synthetic', '--assets')
+        mock_authenticate.assert_called_once_with('synthetic', extra_scopes=('assets.read',))
+        compare(auth.stat().st_mode & 0o777, expected=0o600)
+
     @pytest.fixture(autouse=True)
     def mock_authenticate(self) -> Iterator[Mock]:
         mock = Mock(spec=authenticate)
