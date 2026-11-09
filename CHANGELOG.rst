@@ -1,6 +1,12 @@
 Changes
 =======
 
+Next release
+------------
+
+- Export Invoices, CreditNotes and ManualJournals using pagination so their
+  line details are included. Re-export these endpoints to replace existing summary-only data.
+
 1.1.0 (2025-07-08)
 ------------------
 
