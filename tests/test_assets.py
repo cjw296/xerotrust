@@ -26,11 +26,20 @@ def collection(status: str, page: int = 1, pages: int = 1, total: int = 1) -> di
 
 
 def responses() -> list[Any]:
-    return [
+    pages = [
         collection('DRAFT', 1, 2, 2),
         collection('DRAFT', 2, 2, 2),
         collection('REGISTERED'),
         collection('DISPOSED'),
+    ]
+    details = [
+        dict(row, description='Synthetic asset detail', originalInvoiceId='invoice-1', metaData={})
+        for page in pages
+        for row in page['items']
+    ]
+    return [
+        *pages,
+        *details,
         [{'assetTypeId': 'type-1'}],
         {'assetNumberPrefix': 'FA-'},
     ]
@@ -42,14 +51,24 @@ def test_assets_all_statuses_and_pages(tmp_path: Path) -> None:
     manifest = export_assets(api, tmp_path)
     compare(manifest['status_counts'], expected={'DRAFT': 2, 'REGISTERED': 1, 'DISPOSED': 1})
     compare(manifest['asset_types'], expected=1)
+    compare(manifest['asset_details'], expected=4)
     compare(
         json.loads((tmp_path / 'assets.json').read_text()),
-        expected=[row for response in responses()[:4] for row in response['items']],
+        expected=responses()[4:8],
     )
     compare(list(manifest['files']), expected=['assets.json', 'types.json', 'settings.json'])
     compare(
         api.json.call_args_list[1].args,
         expected=('Assets', {'status': 'DRAFT', 'page': 2, 'pageSize': 200}),
+    )
+    compare(
+        [call.args for call in api.json.call_args_list[4:8]],
+        expected=[
+            ('Assets/DRAFT-1',),
+            ('Assets/DRAFT-2',),
+            ('Assets/REGISTERED-1',),
+            ('Assets/DISPOSED-1',),
+        ],
     )
 
 
@@ -65,7 +84,21 @@ def test_empty_register_is_explicit(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     'failure',
-    ['count', 'page', 'changed', 'early', 'duplicate', 'status', 'types', 'settings', 'http'],
+    [
+        'count',
+        'page',
+        'changed',
+        'early',
+        'duplicate',
+        'status',
+        'types',
+        'settings',
+        'http',
+        'detail_type',
+        'detail_id',
+        'detail_status',
+        'detail_http',
+    ],
 )
 def test_incomplete_export_has_no_manifest(tmp_path: Path, failure: str) -> None:
     data = responses()
@@ -85,6 +118,14 @@ def test_incomplete_export_has_no_manifest(tmp_path: Path, failure: str) -> None
         data[-2] = [None]
     elif failure == 'settings':
         data[-1] = []
+    elif failure == 'detail_type':
+        data[4] = []
+    elif failure == 'detail_id':
+        data[4]['assetId'] = 'unexpected'
+    elif failure == 'detail_status':
+        data[4]['assetStatus'] = 'Disposed'
+    elif failure == 'detail_http':
+        data[4] = read_api.APIError('synthetic detail request failure')
     else:
         data[1] = read_api.APIError('synthetic request failure')
     (tmp_path / 'manifest.json').write_text('{"complete":true}')
