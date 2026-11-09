@@ -49,6 +49,19 @@ def export_assets(api: ReadAPI, destination: Path) -> dict[str, Any]:
             raise ValueError('Asset count does not match the API pagination total')
         counts[status] = count
 
+    # Collection responses omit fields such as description and originalInvoiceId.
+    for index, summary in enumerate(assets):
+        detail = api.json(f"Assets/{summary['assetId']}")
+        if (
+            not isinstance(detail, dict)
+            or detail.get('assetId') != summary['assetId']
+            or str(detail.get('assetStatus', '')).upper() != str(summary['assetStatus']).upper()
+        ):
+            raise ValueError(
+                'Asset detail does not match its collection entry; retry a fresh export'
+            )
+        assets[index] = detail
+
     types = api.json('AssetTypes')
     settings = api.json('Settings')
     if (
@@ -64,6 +77,7 @@ def export_assets(api: ReadAPI, destination: Path) -> dict[str, Any]:
         'version': 1,
         'complete': True,
         'status_counts': counts,
+        'asset_details': len(assets),
         'asset_types': len(types),
         'files': {
             name: hashlib.sha256((destination / name).read_bytes()).hexdigest()
