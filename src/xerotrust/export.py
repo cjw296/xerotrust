@@ -143,6 +143,21 @@ class Export:
 
 
 @dataclass
+class PagedExport(Export):
+    """Fetch document pages, including details omitted from unpaged collections."""
+
+    page_size: int = 1000
+
+    def _raw_items(
+        self, manager: Any, latest: dict[str, int | datetime] | None
+    ) -> Iterable[dict[str, Any]]:
+        page = 1
+        while entries := retry_on_rate_limit(manager.filter, page=page, pageSize=self.page_size):
+            yield from entries
+            page += 1
+
+
+@dataclass
 class StaticExport(Export):
     """Export class for endpoints that don't support incremental updates."""
 
@@ -217,12 +232,12 @@ EXPORTS = {
     'Journals': JournalsExport(),
     'BankTransactions': BankTransactionsExport(),
     'BankTransfers': Export("banktransfers.jsonl"),
-    'Invoices': Export("invoices.jsonl"),
-    'CreditNotes': Export("creditnotes.jsonl"),
+    'Invoices': PagedExport("invoices.jsonl"),
+    'CreditNotes': PagedExport("creditnotes.jsonl"),
     'Currencies': StaticExport("currencies.jsonl"),
     'Employees': Export("employees.jsonl"),
     'Items': Export("items.jsonl"),
-    'ManualJournals': Export("manualjournals.jsonl"),
+    'ManualJournals': PagedExport("manualjournals.jsonl"),
     'Organisations': Export("organisations.jsonl"),
     'Overpayments': Export("overpayments.jsonl"),
     'Payments': Export("payments.jsonl"),

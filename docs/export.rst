@@ -103,6 +103,20 @@ __ https://jsonlines.org/
 
 For the complete file structure, see :doc:`usage`.
 
+Document line details
+---------------------
+
+Invoices, CreditNotes and ManualJournals are retrieved using pagination, which includes
+the line details omitted by Xero's unpaged collection responses. Every page is fetched
+until an empty page is returned, with rate-limit retries applied to each page.
+
+Exports made with older versions may contain empty ``LineItems`` or ``JournalLines``
+arrays even for documents with nonzero totals. Re-export these endpoints to replace
+that summary-only data. These endpoints are fetched in full even with ``--update``.
+
+An export still writes directly to its destination. A failed request can leave partial
+files there, so a completed export should be validated before replacing a known-good backup.
+
 
 What can be exported
 --------------------
