@@ -18,8 +18,13 @@ from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
+from .exceptions import RateLimitDeferred
 from .reconcile import RECONCILERS, AccountTotals
 from .transform import TRANSFORMERS, show
+
+
+class DeferredExportError(click.ClickException):
+    exit_code = 75
 
 
 @click.group()
@@ -258,6 +263,8 @@ def export(
                     if exporter.latest:
                         latest[endpoint] = exporter.latest
                     counter.refresh()
+                except RateLimitDeferred as e:
+                    raise DeferredExportError(f'{endpoint}: {e}') from e
                 except Exception as e:
                     e.add_note(f'while exporting {endpoint!r}')
                     raise

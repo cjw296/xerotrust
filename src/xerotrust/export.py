@@ -10,6 +10,7 @@ from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar, cast
 
 from xero.exceptions import XeroRateLimitExceeded
 
+from xerotrust.exceptions import RateLimitDeferred
 from xerotrust.transform import DateTimeEncoder
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
@@ -93,15 +94,42 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
 
 Namer: TypeAlias = Callable[[dict[str, Any]], str]
 
+MAX_RATE_LIMIT_WAIT = 120
+MAX_RATE_LIMIT_ATTEMPTS = 5
+
 
 def retry_on_rate_limit[T, **P](
     manager_method: Callable[P, T], *args: P.args, **kwargs: P.kwargs
 ) -> T:
+    attempts = 0
     while True:
         try:
             return manager_method(*args, **kwargs)
         except XeroRateLimitExceeded as e:
-            seconds = int(e.response.headers['retry-after'])
+            attempts += 1
+            headers = e.response.headers
+            try:
+                seconds = int(headers.get('Retry-After', ''))
+                if seconds < 0:
+                    raise ValueError
+            except ValueError:
+                raise RateLimitDeferred(
+                    'Rate limit response has no valid Retry-After; export incomplete. Retry later.'
+                ) from e
+            if (
+                headers.get('X-Rate-Limit-Problem', '').strip().lower() == 'day'
+                or headers.get('X-DayLimit-Remaining') == '0'
+                or seconds > MAX_RATE_LIMIT_WAIT
+            ):
+                raise RateLimitDeferred(
+                    f'Rate limit requires deferral; retry in at least {seconds} seconds. '
+                    'Export incomplete.'
+                ) from e
+            if attempts >= MAX_RATE_LIMIT_ATTEMPTS:
+                raise RateLimitDeferred(
+                    f'Rate limit persisted after {attempts} attempts; '
+                    f'retry in at least {seconds} seconds. Export incomplete.'
+                ) from e
             logging.warning(f'Rate limit exceeded, waiting {seconds} seconds')
             sleep(seconds)
 

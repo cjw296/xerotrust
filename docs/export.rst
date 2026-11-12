@@ -41,6 +41,29 @@ What can't be exported
 Basic usage
 -----------
 
+Rate limits
+~~~~~~~~~~~
+
+``export`` retries short rate limits using Xero's ``Retry-After`` delay, with at
+most five attempts per API request. It stops immediately when Xero indicates
+the daily limit, requests a wait longer than 120 seconds, or supplies a missing
+or invalid delay. Five consecutive rate-limit responses also stop the export.
+These cases report an incomplete export and exit with code **75**. A scheduler
+should defer the next run until at least the indicated delay has elapsed,
+rather than immediately restarting the command. Without a valid delay, retry
+later instead of using a tight retry loop.
+
+The affected tenant's ``latest.json`` checkpoint is not saved on deferral, but
+files already written by the command remain partial. Export into a fresh staging
+directory and publish it only after a successful, validated run. Do not repeatedly
+run ``--update`` on a partial export: incremental output may contain duplicates.
+
+See `Xero's rate-limit guidance
+<https://developer.xero.com/documentation/best-practices/api-call-efficiencies/rate-limits/>`_.
+
+Commands
+~~~~~~~~
+
 **Export everything:**
 
 .. tabs::
