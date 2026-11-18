@@ -1,6 +1,16 @@
 Changes
 =======
 
+Next release
+------------
+
+- Add resumable Files API exports for uploaded attachments, inbox files, metadata,
+  folders and document associations, with size/hash validation and explicit quota failure.
+
+- Add opt-in fixed-asset register, asset type and settings exports, with all-status
+  pagination and a completion manifest. ``login --assets`` requests read-only permission;
+  token refresh preserves the scopes already granted by the user.
+
 1.1.0 (2025-07-08)
 ------------------
 
