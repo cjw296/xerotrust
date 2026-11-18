@@ -2,7 +2,7 @@ xerotrust
 =========
 |Docs|_  |PyPI|_ |Git|_
 
-.. |Docs| image:: https://readthedocs.org/projects/xerotrust/badge/?version=latest
+.. |Docs| image:: https://img.shields.io/readthedocs/xerotrust
 .. _Docs: https://xerotrust.readthedocs.io/
 
 .. |PyPI| image:: https://badge.fury.io/py/xerotrust.svg
