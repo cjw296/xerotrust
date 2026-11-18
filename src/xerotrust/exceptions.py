@@ -5,4 +5,6 @@ class XeroAPIException(ValueError):
 
 
 class RateLimitDeferred(RuntimeError):
-    """An incomplete export must be retried later instead of waiting in this process."""
+    """
+    An incomplete export must be retried later instead of waiting in this process.
+    """

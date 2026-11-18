@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from collections import deque, defaultdict
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
@@ -17,9 +18,10 @@ from xero import Xero
 from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
-from .export import EXPORTS, FileManager, Split, LatestData
+from .export import EXPORTS, FileManager, Split, LatestData, RateLimitPolicy
 from .exceptions import RateLimitDeferred
 from .reconcile import RECONCILERS, AccountTotals
+from .staging import staged_export
 from .transform import TRANSFORMERS, show
 
 
@@ -214,6 +216,20 @@ def explore(
     default=False,
     help='Update the existing export where possible, rather than re-exporting and overwriting',
 )
+@click.option(
+    '--rate-limit-max-wait',
+    type=click.IntRange(min=0),
+    default=120,
+    show_default=True,
+    help='Maximum Retry-After delay in seconds to wait in this process.',
+)
+@click.option(
+    '--rate-limit-max-attempts',
+    type=click.IntRange(min=1),
+    default=5,
+    show_default=True,
+    help='Maximum attempts per API request when short rate limits persist.',
+)
 @click.pass_obj
 def export(
     auth_path: Path,
@@ -222,6 +238,8 @@ def export(
     path: Path,
     split: Split,
     update: bool,
+    rate_limit_max_wait: int,
+    rate_limit_max_attempts: int,
 ) -> None:
     """Export data from Xero API endpoints."""
     credentials = credentials_from_file(auth_path)
@@ -234,31 +252,35 @@ def export(
     if not endpoints:
         endpoints = EXPORTS.keys()
 
-    with FileManager(serializer=TRANSFORMERS['json']) as files:
+    policy = RateLimitPolicy(rate_limit_max_wait, rate_limit_max_attempts)
+    with staged_export(path) as transaction, FileManager(serializer=TRANSFORMERS['json']) as files:
         for tenant_id in tenant_ids:
             tenant_data = all_tenant_data[tenant_id]
             tenant_name = tenant_data["tenantName"]
-            tenant_path = path / tenant_name
-            files.write(tenant_data, tenant_path / "tenant.json")
+            tenant_path = Path(tenant_name)
+            files.write(tenant_data, transaction.path(tenant_path / "tenant.json"))
             credentials.tenant_id = tenant_id
 
             latest_path = tenant_path / "latest.json"
-            latest = LatestData.load(latest_path) if update else LatestData()
+            latest = LatestData.load(path / latest_path) if update else LatestData()
 
             counter_manager = enlighten.get_manager()
             for endpoint in endpoints:
                 try:
                     manager = getattr(xero, endpoint.lower())
-                    exporter = EXPORTS[endpoint]
+                    exporter = replace(EXPORTS[endpoint], rate_limit=policy)
                     counter = counter_manager.counter(
                         desc=f'{tenant_name}: {endpoint}',
                         unit='items exported',
                     )
                     for row in counter(exporter.items(manager, latest=latest.pop(endpoint, None))):
+                        append = update and exporter.supports_update
                         files.write(
                             row,
-                            tenant_path / exporter.name(row, split),
-                            append=update and exporter.supports_update,
+                            transaction.path(
+                                tenant_path / exporter.name(row, split), append=append
+                            ),
+                            append=append,
                         )
                     if exporter.latest:
                         latest[endpoint] = exporter.latest
@@ -268,7 +290,7 @@ def export(
                 except Exception as e:
                     e.add_note(f'while exporting {endpoint!r}')
                     raise
-            latest.save(latest_path)
+            latest.save(transaction.path(latest_path))
 
 
 @cli.command()

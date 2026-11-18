@@ -41,29 +41,6 @@ What can't be exported
 Basic usage
 -----------
 
-Rate limits
-~~~~~~~~~~~
-
-``export`` retries short rate limits using Xero's ``Retry-After`` delay, with at
-most five attempts per API request. It stops immediately when Xero indicates
-the daily limit, requests a wait longer than 120 seconds, or supplies a missing
-or invalid delay. Five consecutive rate-limit responses also stop the export.
-These cases report an incomplete export and exit with code **75**. A scheduler
-should defer the next run until at least the indicated delay has elapsed,
-rather than immediately restarting the command. Without a valid delay, retry
-later instead of using a tight retry loop.
-
-The affected tenant's ``latest.json`` checkpoint is not saved on deferral, but
-files already written by the command remain partial. Export into a fresh staging
-directory and publish it only after a successful, validated run. Do not repeatedly
-run ``--update`` on a partial export: incremental output may contain duplicates.
-
-See `Xero's rate-limit guidance
-<https://developer.xero.com/documentation/best-practices/api-call-efficiencies/rate-limits/>`_.
-
-Commands
-~~~~~~~~
-
 **Export everything:**
 
 .. tabs::
@@ -174,3 +151,40 @@ Export of the following types of content has been implemented:
 If something you need is missing, it should be easy enough to add, please file
 a `feature request <https://github.com/cjw296/xerotrust/issues>`_.
 
+
+Rate limits and safe retries
+----------------------------
+
+``export`` retries short rate limits using Xero's ``Retry-After`` delay. Set
+``--rate-limit-max-wait`` (seconds, default 120) and ``--rate-limit-max-attempts``
+(total attempts per API request, default 5) to adjust this policy. The wait must
+be nonnegative and the attempt count positive. Python callers can pass a
+``RateLimitPolicy`` to an exporter's ``rate_limit`` parameter.
+
+A daily-limit response, a wait above the configured maximum, or exhaustion of
+the configured attempts stops the export with exit code **75**. The attempt
+limit also bounds repeated minute or application-minute limits while daily
+capacity remains available, for example when another worker keeps consuming
+the shared minute budget. Each successful API request resets the attempt count
+for the next request. Missing or malformed ``Retry-After`` headers remain errors;
+they are not classified as a normal quota deferral.
+
+A scheduler should wait at least the delay reported in the error before retrying.
+Short waits are never shortened to fit the configured maximum: longer waits are
+deferred instead. See `Xero's rate-limit guidance
+<https://developer.xero.com/documentation/best-practices/api-call-efficiencies/rate-limits/>`_.
+
+All tenant data and checkpoints are staged privately inside the destination until
+every requested API export succeeds. A quota or API failure discards these staged
+writes and leaves the previous exported files and checkpoints unchanged. Rerun
+the same command after the quota resets, including ``--update`` when originally
+used: interrupted pages will not be appended twice. Successful incremental writes
+retain the existing data; unrelated files are preserved. This does not repair
+duplicates left by earlier versions or provide a point-in-time view of Xero.
+
+Publication replaces individual files and writes checkpoints last. Caught
+publication failures roll back changed files; if rollback itself fails, the error
+identifies a private directory containing recovery copies. Allow only one exporter
+to write to a destination at a time. This is not a crash-atomic transaction across
+files: after power loss or a forced kill during publication, inspect the retained
+``.xerotrust-*`` staging/recovery directory before rerunning.

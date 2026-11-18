@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -94,12 +94,19 @@ class LatestData(dict[str, dict[str, datetime | int] | None]):
 
 Namer: TypeAlias = Callable[[dict[str, Any]], str]
 
-MAX_RATE_LIMIT_WAIT = 120
-MAX_RATE_LIMIT_ATTEMPTS = 5
+
+@dataclass(frozen=True)
+class RateLimitPolicy:
+    max_wait: int = 120
+    max_attempts: int = 5
+
+    def __post_init__(self) -> None:
+        if self.max_wait < 0 or self.max_attempts < 1:
+            raise ValueError('Rate limit max_wait must be nonnegative and max_attempts positive')
 
 
 def retry_on_rate_limit[T, **P](
-    manager_method: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    manager_method: Callable[P, T], policy: RateLimitPolicy, *args: P.args, **kwargs: P.kwargs
 ) -> T:
     attempts = 0
     while True:
@@ -108,24 +115,17 @@ def retry_on_rate_limit[T, **P](
         except XeroRateLimitExceeded as e:
             attempts += 1
             headers = e.response.headers
-            try:
-                seconds = int(headers.get('Retry-After', ''))
-                if seconds < 0:
-                    raise ValueError
-            except ValueError:
-                raise RateLimitDeferred(
-                    'Rate limit response has no valid Retry-After; export incomplete. Retry later.'
-                ) from e
+            seconds = int(headers['retry-after'])
             if (
                 headers.get('X-Rate-Limit-Problem', '').strip().lower() == 'day'
                 or headers.get('X-DayLimit-Remaining') == '0'
-                or seconds > MAX_RATE_LIMIT_WAIT
+                or seconds > policy.max_wait
             ):
                 raise RateLimitDeferred(
                     f'Rate limit requires deferral; retry in at least {seconds} seconds. '
                     'Export incomplete.'
                 ) from e
-            if attempts >= MAX_RATE_LIMIT_ATTEMPTS:
+            if attempts >= policy.max_attempts:
                 raise RateLimitDeferred(
                     f'Rate limit persisted after {attempts} attempts; '
                     f'retry in at least {seconds} seconds. Export incomplete.'
@@ -141,6 +141,7 @@ class Export:
 
     file_name: str | None = None
     latest: dict[str, int | datetime] | None = None
+    rate_limit: RateLimitPolicy = field(default_factory=RateLimitPolicy, kw_only=True)
 
     def name(self, item: dict[str, Any], split: Split) -> str:
         assert self.file_name is not None
@@ -149,7 +150,7 @@ class Export:
     def _raw_items(
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
-        return retry_on_rate_limit(manager.all)
+        return retry_on_rate_limit(manager.all, self.rate_limit)
 
     def items(
         self, manager: Any, latest: dict[str, int | datetime] | None
@@ -191,7 +192,7 @@ class JournalsExport(Export):
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
         offset = 0 if latest is None else latest.get('JournalNumber', 0)
-        while entries := retry_on_rate_limit(manager.filter, offset=offset):
+        while entries := retry_on_rate_limit(manager.filter, self.rate_limit, offset=offset):
             yield from entries
             offset = entries[-1]['JournalNumber']
 
@@ -215,7 +216,7 @@ class BankTransactionsExport(Export):
             kwargs: dict[str, Any] = {'page': page, 'pageSize': self.page_size}
             if latest is not None:
                 kwargs['since'] = cast(datetime, latest['UpdatedDateUTC'])
-            entries = retry_on_rate_limit(manager.filter, **kwargs)
+            entries = retry_on_rate_limit(manager.filter, self.rate_limit, **kwargs)
             if not entries:
                 break
             yield from entries
