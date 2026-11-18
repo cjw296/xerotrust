@@ -8,9 +8,9 @@ extensions = [
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
-    'starlette': ('https://www.starlette.io', None),
+    'starlette': ('https://starlette.dev', None),
     'fastapi': ('https://fastapi.tiangolo.com', None),
-    'typing': ('https://typing.readthedocs.io/en/latest/', None),
+    'typing': ('https://typing.python.org/en/latest/', None),
 }
 
 project = 'xerotrust'
