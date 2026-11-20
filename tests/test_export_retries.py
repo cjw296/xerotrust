@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from testfixtures import compare
 
-from .helpers import XERO_API_URL, add_tenants_response, run_cli
+from .helpers import XERO_API_URL, add_tenants_response, run_cli, retained_notice, FileChecker
 
 
 pytestmark = pytest.mark.usefixtures('mock_credentials_from_file')
@@ -23,7 +23,7 @@ def contents(directory: Path) -> dict[str, bytes]:
 @pytest.mark.parametrize('update', [False, True])
 @pytest.mark.parametrize('failure', ['later_page', 'later_endpoint'])
 def test_quota_then_rerun_is_idempotent(
-    tmp_path: Path, pook: Any, endpoint: str, update: bool, failure: str
+    tmp_path: Path, pook: Any, endpoint: str, update: bool, failure: str, staging_root: Path
 ) -> None:
     tenant = tmp_path / 'Tenant 1'
     tenant.mkdir()
@@ -65,21 +65,29 @@ def test_quota_then_rerun_is_idempotent(
             reply=200,
             response_json={'Status': 'OK', 'Accounts': [{'AccountID': 'replacement'}]},
         )
+        completed_incremental = not fail and update and failure == 'later_endpoint'
+        params = (
+            {'offset': '2' if completed_incremental else ('1' if update else '0')}
+            if endpoint == 'Journals'
+            else {'page': '1', 'pageSize': '1000'}
+        )
         pook.get(
             f'{XERO_API_URL}/{endpoint}',
+            params=params,
             reply=200,
-            response_json={'Status': 'OK', endpoint: [api_row]},
+            response_json={'Status': 'OK', endpoint: [] if completed_incremental else [api_row]},
         )
         if fail and failure == 'later_page':
             pook.get(
                 f'{XERO_API_URL}/{endpoint}', reply=429, response_headers={'Retry-After': '12577'}
             )
         else:
-            pook.get(
-                f'{XERO_API_URL}/{endpoint}',
-                reply=200,
-                response_json={'Status': 'OK', endpoint: []},
-            )
+            if not completed_incremental:
+                pook.get(
+                    f'{XERO_API_URL}/{endpoint}',
+                    reply=200,
+                    response_json={'Status': 'OK', endpoint: []},
+                )
             if fail:
                 pook.get(
                     f'{XERO_API_URL}/Contacts', reply=429, response_headers={'Retry-After': '12577'}
@@ -93,7 +101,7 @@ def test_quota_then_rerun_is_idempotent(
 
     arguments = ['--update'] if update else []
     responses(fail=True)
-    run_cli(
+    result = run_cli(
         tmp_path,
         'export',
         'accounts',
@@ -106,7 +114,40 @@ def test_quota_then_rerun_is_idempotent(
         *arguments,
         expected_return_code=75,
     )
-    compare(actual=contents(tmp_path), expected=before)
+    compare(
+        actual=(tenant / 'accounts.jsonl').read_text(), expected='{"AccountID": "replacement"}\n'
+    )
+    compare(
+        actual=(tenant / 'unrelated.txt').read_bytes(), expected=before['Tenant 1/unrelated.txt']
+    )
+    if failure == 'later_page':
+        compare(actual=(tenant / filename).read_bytes(), expected=before[f'Tenant 1/{filename}'])
+        compare(
+            actual=json.loads((tenant / 'latest.json').read_text()),
+            expected={endpoint: previous_latest},
+        )
+    else:
+        compare(
+            actual=json.loads((tenant / 'latest.json').read_text()),
+            expected={endpoint: expected_latest},
+        )
+    diagnostic = next(staging_root.iterdir())
+    saved_diagnostic = contents(diagnostic)
+    compare(
+        actual=result.output,
+        expected=retained_notice(staging_root)
+        + f'Error: {endpoint if failure == "later_page" else "Contacts"}: '
+        'Rate limit requires deferral; retry in at least 12577 seconds. Export incomplete.\n',
+    )
+    expected_diagnostic = {
+        'Tenant 1/tenant.json': '{"id": "bad", "tenantId": "t1", "tenantName": "Tenant 1"}\n'
+    }
+    if failure == 'later_page':
+        diagnostic_rows = [original_row, expected_row] if update else [expected_row]
+        expected_diagnostic[f'Tenant 1/{filename}'] = ''.join(
+            json.dumps(row) + '\n' for row in diagnostic_rows
+        )
+    FileChecker(diagnostic)(expected_diagnostic)
     responses(fail=False)
     run_cli(
         tmp_path,
@@ -134,14 +175,16 @@ def test_quota_then_rerun_is_idempotent(
     )
     compare(actual=(tenant / 'unrelated.txt').read_text(), expected='preserved')
     compare(actual=sorted(path.name for path in tmp_path.iterdir()), expected=['Tenant 1'])
+    compare(actual=contents(diagnostic), expected=saved_diagnostic)
 
 
-def test_later_tenant_quota_discards_earlier_tenant_changes(tmp_path: Path, pook: Any) -> None:
+def test_later_tenant_quota_keeps_completed_tenant(
+    tmp_path: Path, pook: Any, staging_root: Path
+) -> None:
     tenant = tmp_path / 'Tenant 1'
     tenant.mkdir()
     (tenant / 'accounts.jsonl').write_text('{"AccountID": "previous"}\n')
     (tenant / 'latest.json').write_text('{}')
-    before = contents(tmp_path)
     add_tenants_response(
         pook,
         [
@@ -162,5 +205,9 @@ def test_later_tenant_quota_discards_earlier_tenant_changes(tmp_path: Path, pook
         response_headers={'Retry-After': '12577'},
     )
     run_cli(tmp_path, 'export', 'accounts', '--path', str(tmp_path), expected_return_code=75)
-    compare(actual=contents(tmp_path), expected=before)
+    compare(
+        actual=(tenant / 'accounts.jsonl').read_text(), expected='{"AccountID": "replacement"}\n'
+    )
+    compare(actual=(tenant / 'latest.json').read_text(), expected='{}')
     compare(actual=sorted(path.name for path in tmp_path.iterdir()), expected=['Tenant 1'])
+    assert (next(staging_root.iterdir()) / 'Tenant 2/tenant.json').exists()

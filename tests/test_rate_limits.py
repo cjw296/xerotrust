@@ -6,10 +6,14 @@ from unittest.mock import Mock, call
 import pytest
 from testfixtures import compare, replace_in_module
 
-from xerotrust import export
-from xerotrust.export import RateLimitPolicy
+from click.testing import CliRunner
+from requests import Response
+from xero.exceptions import XeroRateLimitExceeded
 
-from .helpers import FileChecker, XERO_API_URL, add_tenants_response, run_cli
+from xerotrust import export, main
+from xerotrust.exceptions import RateLimitDeferred
+
+from .helpers import FileChecker, XERO_API_URL, add_tenants_response, run_cli, retained_notice
 
 
 pytestmark = pytest.mark.usefixtures('mock_credentials_from_file')
@@ -27,7 +31,12 @@ pytestmark = pytest.mark.usefixtures('mock_credentials_from_file')
 )
 @pytest.mark.parametrize('update', [False, True])
 def test_deferral_does_not_sleep_retry_or_change_destination(
-    tmp_path: Path, pook: Any, headers: dict[str, str], update: bool, check_files: FileChecker
+    tmp_path: Path,
+    pook: Any,
+    headers: dict[str, str],
+    update: bool,
+    check_files: FileChecker,
+    staging_root: Path,
 ) -> None:
     add_tenants_response(pook)
     pook.get(f'{XERO_API_URL}/Accounts', reply=429, response_headers=headers)
@@ -51,7 +60,8 @@ def test_deferral_does_not_sleep_retry_or_change_destination(
     sleeper.assert_not_called()
     compare(
         actual=result.output,
-        expected=(
+        expected=retained_notice(staging_root)
+        + (
             'Error: Accounts: Rate limit requires deferral; '
             f'retry in at least {headers["Retry-After"]} seconds. Export incomplete.\n'
         ),
@@ -113,10 +123,8 @@ def test_short_rate_limits_respect_configured_wait(
     compare(actual=(tmp_path / 'Tenant 1/latest.json').read_text(), expected='{}')
 
 
-@pytest.mark.parametrize('attempts', [1, 2, 5])
-def test_repeated_minute_limits_with_daily_capacity_are_bounded(
-    tmp_path: Path, pook: Any, attempts: int, check_files: FileChecker
-) -> None:
+@pytest.mark.parametrize('attempts', [6, 9])
+def test_repeated_minute_limits_keep_retrying(tmp_path: Path, pook: Any, attempts: int) -> None:
     add_tenants_response(pook)
     pook.get(
         f'{XERO_API_URL}/Accounts',
@@ -128,30 +136,18 @@ def test_repeated_minute_limits_with_daily_capacity_are_bounded(
             'X-DayLimit-Remaining': '900',
         },
     )
+    pook.get(f'{XERO_API_URL}/Accounts', reply=200, response_json={'Status': 'OK', 'Accounts': []})
     sleeper = Mock()
     with replace_in_module(sleep, sleeper, module=export):
-        result = run_cli(
-            tmp_path,
-            'export',
-            'accounts',
-            '--path',
-            str(tmp_path),
-            '--rate-limit-max-attempts',
-            str(attempts),
-            expected_return_code=75,
-        )
-    compare(actual=sleeper.call_args_list, expected=[call(60)] * (attempts - 1))
-    compare(
-        actual=result.output,
-        expected=(
-            f'Error: Accounts: Rate limit persisted after {attempts} attempts; '
-            'retry in at least 60 seconds. Export incomplete.\n'
-        ),
-    )
-    check_files({})
+        result = run_cli(tmp_path, 'export', 'accounts', '--path', str(tmp_path))
+    compare(actual=sleeper.call_args_list, expected=[call(60)] * attempts)
+    compare(actual=result.output, expected='')
+    compare(actual=(tmp_path / 'Tenant 1/latest.json').read_text(), expected='{}')
 
 
-def test_cli_policy_does_not_leak_to_subsequent_exports(tmp_path: Path, pook: Any) -> None:
+def test_cli_policy_does_not_leak_to_subsequent_exports(
+    tmp_path: Path, pook: Any, staging_root: Path
+) -> None:
     for _ in range(2):
         add_tenants_response(pook)
         pook.get(f'{XERO_API_URL}/Accounts', reply=429, response_headers={'Retry-After': '2'})
@@ -171,17 +167,17 @@ def test_cli_policy_does_not_leak_to_subsequent_exports(tmp_path: Path, pook: An
         sleeper.assert_not_called()
         compare(
             actual=result.output,
-            expected=(
+            expected=retained_notice(staging_root)
+            + (
                 'Error: Accounts: Rate limit requires deferral; retry in at least 2 seconds. '
                 'Export incomplete.\n'
             ),
         )
         run_cli(tmp_path, 'export', 'accounts', '--path', str(tmp_path))
     sleeper.assert_called_once_with(2)
-    compare(actual=export.EXPORTS['Accounts'].rate_limit, expected=RateLimitPolicy())
 
 
-def test_attempt_budget_is_per_request(tmp_path: Path, pook: Any) -> None:
+def test_short_limits_retry_on_each_endpoint(tmp_path: Path, pook: Any) -> None:
     add_tenants_response(pook)
     for endpoint in ('Accounts', 'Contacts'):
         pook.get(f'{XERO_API_URL}/{endpoint}', reply=429, response_headers={'Retry-After': '1'})
@@ -197,19 +193,45 @@ def test_attempt_budget_is_per_request(tmp_path: Path, pook: Any) -> None:
             'contacts',
             '--path',
             str(tmp_path),
-            '--rate-limit-max-attempts',
-            '2',
         )
     compare(actual=sleeper.call_args_list, expected=[call(1), call(1)])
     compare(actual=result.output, expected='')
     compare(actual=(tmp_path / 'Tenant 1/latest.json').read_text(), expected='{}')
 
 
-@pytest.mark.parametrize('max_wait,max_attempts', [(-1, 5), (120, 0)])
-def test_invalid_policy(max_wait: int, max_attempts: int) -> None:
+def test_invalid_max_wait() -> None:
     with pytest.raises(ValueError) as error:
-        RateLimitPolicy(max_wait, max_attempts)
+        list(export.Export().items(Mock(), None, max_wait=-1))
+    compare(actual=str(error.value), expected='max_wait must be nonnegative')
+
+
+def test_cli_propagates_original_deferral_exception(tmp_path: Path, pook: Any) -> None:
+    add_tenants_response(pook)
+    pook.get(f'{XERO_API_URL}/Accounts', reply=429, response_headers={'Retry-After': '300'})
+    with pytest.raises(RateLimitDeferred) as error:
+        CliRunner().invoke(
+            main.cli,
+            ['--auth', str(tmp_path), 'export', 'accounts', '--path', str(tmp_path)],
+            standalone_mode=False,
+            catch_exceptions=False,
+        )
     compare(
-        actual=str(error.value),
-        expected='Rate limit max_wait must be nonnegative and max_attempts positive',
+        actual=error.value.format_message(),
+        expected='Accounts: Rate limit requires deferral; retry in at least 300 seconds. Export incomplete.',
     )
+    assert isinstance(error.value.__cause__, XeroRateLimitExceeded)
+
+
+def test_python_exporter_defers_without_cli_wrapper() -> None:
+    response = Response()
+    response.status_code = 429
+    response.headers['Retry-After'] = '2'
+    manager = Mock()
+    manager.all.side_effect = XeroRateLimitExceeded(response, {})
+    with pytest.raises(RateLimitDeferred) as error:
+        list(export.Export().items(manager, None, max_wait=1))
+    compare(
+        actual=error.value.format_message(),
+        expected='Rate limit requires deferral; retry in at least 2 seconds. Export incomplete.',
+    )
+    compare(actual=error.value.exit_code, expected=75)

@@ -155,36 +155,44 @@ a `feature request <https://github.com/cjw296/xerotrust/issues>`_.
 Rate limits and safe retries
 ----------------------------
 
-``export`` retries short rate limits using Xero's ``Retry-After`` delay. Set
-``--rate-limit-max-wait`` (seconds, default 120) and ``--rate-limit-max-attempts``
-(total attempts per API request, default 5) to adjust this policy. The wait must
-be nonnegative and the attempt count positive. Python callers can pass a
-``RateLimitPolicy`` to an exporter's ``rate_limit`` parameter.
+``export`` waits for Xero's full ``Retry-After`` delay before retrying a short
+rate limit. ``--rate-limit-max-wait`` sets the longest individual delay this
+process will wait for, in seconds (default 120, minimum 0). Python callers can
+pass ``max_wait=120`` to ``exporter.items(...)``. There is no attempt-count limit:
+repeated short limits continue to wait and retry while daily capacity remains.
 
-A daily-limit response, a wait above the configured maximum, or exhaustion of
-the configured attempts stops the export with exit code **75**. The attempt
-limit also bounds repeated minute or application-minute limits while daily
-capacity remains available, for example when another worker keeps consuming
-the shared minute budget. Each successful API request resets the attempt count
-for the next request. Missing or malformed ``Retry-After`` headers remain errors;
-they are not classified as a normal quota deferral.
-
-A scheduler should wait at least the delay reported in the error before retrying.
-Short waits are never shortened to fit the configured maximum: longer waits are
-deferred instead. See `Xero's rate-limit guidance
+For example, with ``--rate-limit-max-wait 120``, a ``Retry-After`` of 60 seconds
+waits 60 seconds and retries. A ``Retry-After`` of 300 seconds stops immediately
+with exit code **75**; it does not sleep for 120 seconds and retry early. A daily
+limit also stops immediately with exit code 75. A scheduler should wait at least
+the delay reported in the error before retrying. Missing or malformed
+``Retry-After`` headers remain ordinary errors. See `Xero's rate-limit guidance
 <https://developer.xero.com/documentation/best-practices/api-call-efficiencies/rate-limits/>`_.
 
-All tenant data and checkpoints are staged privately inside the destination until
-every requested API export succeeds. A quota or API failure discards these staged
-writes and leaves the previous exported files and checkpoints unchanged. Rerun
-the same command after the quota resets, including ``--update`` when originally
-used: interrupted pages will not be appended twice. Successful incremental writes
-retain the existing data; unrelated files are preserved. This does not repair
-duplicates left by earlier versions or provide a point-in-time view of Xero.
+Each endpoint is downloaded into a private directory under the system temporary
+directory. When that endpoint completes, its data and checkpoint are published
+before starting the next endpoint. If a quota or API request fails, the failed
+endpoint's existing data and checkpoint are unchanged. Earlier completed endpoints
+and tenants stay published. Rerun the same command after the quota resets, including
+``--update`` when originally used: completed incremental endpoints resume from
+their saved checkpoints, and the interrupted endpoint repeats its uncommitted
+pages without appending them twice. Successful fresh exports replace the requested
+endpoint's files; unrelated files and endpoint checkpoints are preserved. This
+does not repair duplicates left by earlier versions or provide a point-in-time
+view of Xero.
 
-Publication replaces individual files and writes checkpoints last. Caught
-publication failures roll back changed files; if rollback itself fails, the error
-identifies a private directory containing recovery copies. Allow only one exporter
-to write to a destination at a time. This is not a crash-atomic transaction across
-files: after power loss or a forced kill during publication, inspect the retained
-``.xerotrust-*`` staging/recovery directory before rerunning.
+Failed output is retained for **every failure**, and its directory is printed to
+standard error. It contains the downloaded rows, including the original rows in
+staged incremental files. Successful staging directories are removed. Retained
+directories have owner-only access and follow the operating system's temporary-file
+cleanup policy; move them elsewhere if needed for longer-term investigation.
+
+Publication copies each staged file through a temporary file beside its destination,
+then atomically replaces that one destination file. The checkpoint is replaced last.
+The complete endpoint is **not** a transaction across files: a filesystem error,
+power loss, or forced termination during publication may leave some files replaced
+and the old checkpoint in place. In that case, inspect the retained directory and
+recover the complete endpoint and its checkpoint (or restore an earlier backup)
+before rerunning an incremental export. All staged originals remain available even
+if their destination files were already replaced. Allow only one exporter to write
+to a destination at a time.
