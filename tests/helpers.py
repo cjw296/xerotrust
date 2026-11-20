@@ -1,4 +1,5 @@
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,7 @@ from xerotrust.main import cli
 class FileChecker:
     tmp_path: Path
 
-    def __call__(self, expected: dict[str, str | SnapshotFixture]) -> None:
+    def __call__(self, expected: Mapping[str, str | SnapshotFixture]) -> None:
         expected_files = {}
         for relative_path, expected_value in expected.items():
             if isinstance(expected_value, SnapshotFixture):
@@ -69,3 +70,9 @@ def add_tenants_response(pook: Any, tenants: list[dict[str, str]] | None = None)
 
 def write_jsonl_file(path: Path, lines: list[dict[str, Any]]) -> None:
     path.write_text('\n'.join(json.dumps(j) for j in lines) + '\n')
+
+
+def retained_notice(staging_root: Path) -> str:
+    directories = list(staging_root.iterdir())
+    compare(actual=len(directories), expected=1)
+    return f'Export incomplete; staged files retained at {directories[0]}\n'

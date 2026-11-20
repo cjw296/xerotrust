@@ -10,6 +10,7 @@ from typing import Callable, Any, IO, Self, TypeAlias, Iterable, ClassVar, cast
 
 from xero.exceptions import XeroRateLimitExceeded
 
+from xerotrust.exceptions import RateLimitDeferred
 from xerotrust.transform import DateTimeEncoder
 
 Serializer: TypeAlias = Callable[[dict[str, Any]], str]
@@ -95,13 +96,25 @@ Namer: TypeAlias = Callable[[dict[str, Any]], str]
 
 
 def retry_on_rate_limit[T, **P](
-    manager_method: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    manager_method: Callable[P, T], max_wait: int, *args: P.args, **kwargs: P.kwargs
 ) -> T:
+    if max_wait < 0:
+        raise ValueError('max_wait must be nonnegative')
     while True:
         try:
             return manager_method(*args, **kwargs)
         except XeroRateLimitExceeded as e:
-            seconds = int(e.response.headers['retry-after'])
+            headers = e.response.headers
+            seconds = int(headers['retry-after'])
+            if (
+                headers.get('X-Rate-Limit-Problem', '').strip().lower() == 'day'
+                or headers.get('X-DayLimit-Remaining') == '0'
+                or seconds > max_wait
+            ):
+                raise RateLimitDeferred(
+                    f'Rate limit requires deferral; retry in at least {seconds} seconds. '
+                    'Export incomplete.'
+                ) from e
             logging.warning(f'Rate limit exceeded, waiting {seconds} seconds')
             sleep(seconds)
 
@@ -119,15 +132,15 @@ class Export:
         return self.file_name
 
     def _raw_items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None, *, max_wait: int = 120
     ) -> Iterable[dict[str, Any]]:
-        return retry_on_rate_limit(manager.all)
+        return retry_on_rate_limit(manager.all, max_wait)
 
     def items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None, *, max_wait: int = 120
     ) -> Iterable[dict[str, Any]]:
         self.latest = latest
-        for item in self._raw_items(manager, latest):
+        for item in self._raw_items(manager, latest, max_wait=max_wait):
             if self.latest is None:
                 self.latest = {}
                 for f in self.latest_fields:
@@ -160,10 +173,10 @@ class JournalsExport(Export):
         return item['JournalDate'].strftime(pattern)  # type: ignore[no-any-return]
 
     def _raw_items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None, *, max_wait: int = 120
     ) -> Iterable[dict[str, Any]]:
         offset = 0 if latest is None else latest.get('JournalNumber', 0)
-        while entries := retry_on_rate_limit(manager.filter, offset=offset):
+        while entries := retry_on_rate_limit(manager.filter, max_wait, offset=offset):
             yield from entries
             offset = entries[-1]['JournalNumber']
 
@@ -180,25 +193,25 @@ class BankTransactionsExport(Export):
         return item['Date'].strftime(pattern)  # type: ignore[no-any-return]
 
     def _raw_items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None, *, max_wait: int = 120
     ) -> Iterable[dict[str, Any]]:
         page = 1
         while True:
             kwargs: dict[str, Any] = {'page': page, 'pageSize': self.page_size}
             if latest is not None:
                 kwargs['since'] = cast(datetime, latest['UpdatedDateUTC'])
-            entries = retry_on_rate_limit(manager.filter, **kwargs)
+            entries = retry_on_rate_limit(manager.filter, max_wait, **kwargs)
             if not entries:
                 break
             yield from entries
             page += 1
 
     def items(
-        self, manager: Any, latest: dict[str, int | datetime] | None
+        self, manager: Any, latest: dict[str, int | datetime] | None, *, max_wait: int = 120
     ) -> Iterable[dict[str, Any]]:
         self.latest = latest
         original_latest = cast(datetime, latest['UpdatedDateUTC']) if latest is not None else None
-        for item in self._raw_items(manager, latest):
+        for item in self._raw_items(manager, latest, max_wait=max_wait):
             if original_latest is not None and item['UpdatedDateUTC'] <= original_latest:
                 continue
 

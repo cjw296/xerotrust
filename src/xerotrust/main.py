@@ -18,7 +18,9 @@ from xerotrust.jsonl import jsonl_stream
 from .authentication import authenticate, credentials_from_file
 from .check import CHECKERS
 from .export import EXPORTS, FileManager, Split, LatestData
+from .exceptions import RateLimitDeferred
 from .reconcile import RECONCILERS, AccountTotals
+from .staging import staged_export
 from .transform import TRANSFORMERS, show
 
 
@@ -209,6 +211,13 @@ def explore(
     default=False,
     help='Update the existing export where possible, rather than re-exporting and overwriting',
 )
+@click.option(
+    '--rate-limit-max-wait',
+    type=click.IntRange(min=0),
+    default=120,
+    show_default=True,
+    help='Maximum Retry-After delay in seconds to wait in this process.',
+)
 @click.pass_obj
 def export(
     auth_path: Path,
@@ -217,6 +226,7 @@ def export(
     path: Path,
     split: Split,
     update: bool,
+    rate_limit_max_wait: int,
 ) -> None:
     """Export data from Xero API endpoints."""
     credentials = credentials_from_file(auth_path)
@@ -229,39 +239,54 @@ def export(
     if not endpoints:
         endpoints = EXPORTS.keys()
 
-    with FileManager(serializer=TRANSFORMERS['json']) as files:
-        for tenant_id in tenant_ids:
-            tenant_data = all_tenant_data[tenant_id]
-            tenant_name = tenant_data["tenantName"]
-            tenant_path = path / tenant_name
-            files.write(tenant_data, tenant_path / "tenant.json")
-            credentials.tenant_id = tenant_id
+    for tenant_id in tenant_ids:
+        tenant_data = all_tenant_data[tenant_id]
+        tenant_name = tenant_data["tenantName"]
+        tenant_path = Path(tenant_name)
+        credentials.tenant_id = tenant_id
+        latest_path = tenant_path / "latest.json"
+        latest = LatestData.load(path / latest_path)
 
-            latest_path = tenant_path / "latest.json"
-            latest = LatestData.load(latest_path) if update else LatestData()
-
-            counter_manager = enlighten.get_manager()
-            for endpoint in endpoints:
-                try:
+        counter_manager = enlighten.get_manager()
+        for endpoint in endpoints:
+            try:
+                with (
+                    staged_export(path) as transaction,
+                    FileManager(serializer=TRANSFORMERS['json']) as files,
+                ):
+                    files.write(tenant_data, transaction.path(tenant_path / "tenant.json"))
                     manager = getattr(xero, endpoint.lower())
                     exporter = EXPORTS[endpoint]
                     counter = counter_manager.counter(
                         desc=f'{tenant_name}: {endpoint}',
                         unit='items exported',
                     )
-                    for row in counter(exporter.items(manager, latest=latest.pop(endpoint, None))):
+                    previous = latest.pop(endpoint, None)
+                    for row in counter(
+                        exporter.items(
+                            manager,
+                            latest=previous if update else None,
+                            max_wait=rate_limit_max_wait,
+                        )
+                    ):
+                        append = update and exporter.supports_update
                         files.write(
                             row,
-                            tenant_path / exporter.name(row, split),
-                            append=update and exporter.supports_update,
+                            transaction.path(
+                                tenant_path / exporter.name(row, split), append=append
+                            ),
+                            append=append,
                         )
                     if exporter.latest:
                         latest[endpoint] = exporter.latest
+                    latest.save(transaction.path(latest_path))
                     counter.refresh()
-                except Exception as e:
-                    e.add_note(f'while exporting {endpoint!r}')
-                    raise
-            latest.save(latest_path)
+            except RateLimitDeferred as e:
+                e.endpoint = endpoint
+                raise
+            except Exception as e:
+                e.add_note(f'while exporting {endpoint!r}')
+                raise
 
 
 @cli.command()
