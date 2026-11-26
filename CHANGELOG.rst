@@ -1,11 +1,23 @@
 Changes
 =======
 
-Next release
-------------
+1.2.0 (26 Nov 2026)
+-------------------
 
-- Export Invoices, CreditNotes and ManualJournals using pagination so their
-  line details are included. Re-export these endpoints to replace existing summary-only data.
+- ``Invoices``, ``CreditNotes`` and ``ManualJournals`` are now exported using pagination, so their
+  ``LineItems`` and ``JournalLines`` are included. These endpoints are fetched in full even with
+  ``--update``, and exports made with older versions should be re-exported to replace their
+  summary-only data. See :doc:`export` for details.
+
+- Fixed a bug where a full export aborted with a 404 because Xero has removed the Accounting API's
+  ``Employees`` endpoint. It is no longer exported.
+
+- Fixed a bug where ``export --update`` raised a ``KeyError`` when ``latest.json`` was saved before
+  Xero started returning a date field, such as ``CreatedDateUTC`` on accounts.
+
+- Fixed compatibility with click 8.4, which is now the minimum supported version.
+
+Thanks to jakemike1 for the paginated exports.
 
 1.1.0 (2025-07-08)
 ------------------
