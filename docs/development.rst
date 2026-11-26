@@ -64,10 +64,8 @@ Carthorse should take care of the rest.
 Xero API Documentation
 ----------------------
 
-The ``api-docs/`` directory contains markdown files optimized for AI/LLM consumption
-that were generated from the `Xero Developer documentation`__.
+Xero publishes official `OpenAPI specs`__ for its APIs; ``xero_accounting.yaml`` covers
+everything xerotrust exports.
 
-__ https://developer.xero.com/documentation/api/accounting/overview
-
-See ``api-docs/README.md`` for details.
+__ https://github.com/XeroAPI/Xero-OpenAPI
 

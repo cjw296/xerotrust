@@ -39,23 +39,10 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 
 ## Xero API Documentation
 
-The `api-docs/` directory contains comprehensive documentation for the Xero Accounting API:
+Use Xero's official OpenAPI spec for the Accounting API, which covers every endpoint xerotrust
+exports:
+https://raw.githubusercontent.com/XeroAPI/Xero-OpenAPI/master/xero_accounting.yaml
 
-- **Complete endpoint reference**: 35+ documented endpoints with parameters, examples, and cross-references
-- **AI/LLM optimized format**: Structured markdown tables and consistent formatting
-- **Usage guidance**: When working on Xero API-related features, ALWAYS consult this documentation first
-- **Key files**:
-  - `api-docs/README.md` - Overview and format standards
-  - `api-docs/METHODOLOGY.md` - How the documentation was created and maintained
-  - `api-docs/{endpoint}.md` - Individual endpoint documentation
-
-**When to use the API documentation**:
-- Implementing new Xero API integrations
-- Understanding request/response parameters
-- Debugging API calls and responses  
-- Adding support for new endpoints
-- Verifying field names, types, and relationships
-
-**Example endpoints**: `accounts.md`, `invoices.md`, `banktransactions.md`, `contacts.md`, etc.
-
-This documentation should be your primary reference for Xero API development work.
+It is about 1MB, so search it for the path or schema you need rather than reading it whole.
+Specs for Xero's other APIs (Payroll, Assets, Projects, Files, etc.) are in
+https://github.com/XeroAPI/Xero-OpenAPI.
