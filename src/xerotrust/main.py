@@ -23,6 +23,7 @@ from .transform import TRANSFORMERS, show
 
 
 @click.group()
+@click.version_option(package_name='xerotrust', prog_name='xerotrust')
 @click.option(
     '--auth',
     'auth_path',

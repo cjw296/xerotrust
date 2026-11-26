@@ -1,12 +1,13 @@
 """Tests for functionality shared across all CLI commands."""
 
 import logging
+from importlib.metadata import version
 from pathlib import Path
 from typing import Iterator
 from unittest.mock import Mock
 
 import pytest
-from testfixtures import Replacer
+from testfixtures import Replacer, compare
 
 from xerotrust import main
 from xerotrust.authentication import credentials_from_file
@@ -35,3 +36,8 @@ class TestLogLevel:
     def test_log_level_shorthand(self, tmp_path: Path, mocks: Mock) -> None:
         run_cli(tmp_path, "-l", "WARNING", "tenants")
         mocks.basicConfig.assert_called_once_with(level=logging.WARNING)
+
+
+def test_version(tmp_path: Path) -> None:
+    result = run_cli(tmp_path, "--version")
+    compare(result.output, expected=f"xerotrust, version {version('xerotrust')}\n")
