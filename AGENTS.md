@@ -34,6 +34,9 @@ and [Claude Code](claude.ai/code) when working with code in this repository.
 - Do not add prefixes such as "feat:", "chore:", "test:", "fix:", etc.
 - Capitalize the first letter of any commit message
 
+## Changelog
+- Do not add entries to CHANGELOG.rst; it is generated during release, not in PRs
+
 ## Xero API Documentation
 
 The `api-docs/` directory contains comprehensive documentation for the Xero Accounting API:
