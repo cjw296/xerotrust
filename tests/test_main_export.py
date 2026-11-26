@@ -1147,6 +1147,99 @@ class TestExport:
             }
         )
 
+    def test_latest_field_missing_from_first_item(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Accounts': [
+                    {
+                        'AccountID': 'a1',
+                        'UpdatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                    },
+                    {
+                        'AccountID': 'a2',
+                        'CreatedDateUTC': '/Date(1672617600000+0000)/',  # 2023-01-02
+                        'UpdatedDateUTC': '/Date(1672617600000+0000)/',  # 2023-01-02
+                    },
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), 'accounts')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/accounts.jsonl': (
+                    '{"AccountID": "a1", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n'
+                    '{"AccountID": "a2", "CreatedDateUTC": "2023-01-02T00:00:00+00:00", '
+                    '"UpdatedDateUTC": "2023-01-02T00:00:00+00:00"}\n'
+                ),
+                'Tenant 1/latest.json': dedent('''\
+                    {
+                      "Accounts": {
+                        "UpdatedDateUTC": "2023-01-02T00:00:00+00:00",
+                        "CreatedDateUTC": "2023-01-02T00:00:00+00:00"
+                      }
+                    }
+                '''),
+            }
+        )
+
+    def test_export_update_latest_field_missing_from_latest_json(
+        self, tmp_path: Path, pook: Any, check_files: FileChecker
+    ) -> None:
+        tenant_path = tmp_path / "Tenant 1"
+        add_tenants_response(pook, [{'tenantId': 't1', 'tenantName': 'Tenant 1'}])
+
+        self.write_json(
+            tenant_path / "latest.json",
+            {"Accounts": {"UpdatedDateUTC": "2023-03-15T00:00:00+00:00"}},
+        )
+
+        pook.get(
+            f"{XERO_API_URL}/Accounts",
+            headers={'Xero-Tenant-Id': 't1'},
+            reply=200,
+            response_json={
+                'Status': 'OK',
+                'Accounts': [
+                    {
+                        'AccountID': 'a1',
+                        'CreatedDateUTC': '/Date(1672531200000+0000)/',  # 2023-01-01
+                        'UpdatedDateUTC': '/Date(1678924800000+0000)/',  # 2023-03-16
+                    },
+                ],
+            },
+        )
+
+        run_cli(tmp_path, 'export', '--path', str(tmp_path), '--update', 'accounts')
+
+        check_files(
+            {
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
+                'Tenant 1/accounts.jsonl': (
+                    '{"AccountID": "a1", "CreatedDateUTC": "2023-01-01T00:00:00+00:00", '
+                    '"UpdatedDateUTC": "2023-03-16T00:00:00+00:00"}\n'
+                ),
+                'Tenant 1/latest.json': dedent('''\
+                    {
+                      "Accounts": {
+                        "UpdatedDateUTC": "2023-03-16T00:00:00+00:00",
+                        "CreatedDateUTC": "2023-01-01T00:00:00+00:00"
+                      }
+                    }
+                '''),
+            }
+        )
+
     def test_export_update_multiple_endpoints(
         self, tmp_path: Path, pook: Any, check_files: FileChecker, snapshot: SnapshotFixture
     ) -> None:

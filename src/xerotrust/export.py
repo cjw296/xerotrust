@@ -126,19 +126,13 @@ class Export:
     def items(
         self, manager: Any, latest: dict[str, int | datetime] | None
     ) -> Iterable[dict[str, Any]]:
-        self.latest = latest
+        self.latest = dict(latest) if latest else {}
         for item in self._raw_items(manager, latest):
-            if self.latest is None:
-                self.latest = {}
-                for f in self.latest_fields:
-                    latest_value = item.get(f)
-                    if latest_value is not None:
-                        self.latest[f] = latest_value
-            else:
-                for latest_field in self.latest_fields:
-                    latest_value = item.get(latest_field)
-                    if latest_value is not None:
-                        self.latest[latest_field] = max(latest_value, self.latest[latest_field])
+            for field in self.latest_fields:
+                value = item.get(field)
+                if value is not None:
+                    current = self.latest.get(field)
+                    self.latest[field] = value if current is None else max(current, value)
             yield item
 
 
