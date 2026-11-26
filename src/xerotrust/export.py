@@ -220,7 +220,6 @@ EXPORTS = {
     'Invoices': Export("invoices.jsonl"),
     'CreditNotes': Export("creditnotes.jsonl"),
     'Currencies': StaticExport("currencies.jsonl"),
-    'Employees': Export("employees.jsonl"),
     'Items': Export("items.jsonl"),
     'ManualJournals': Export("manualjournals.jsonl"),
     'Organisations': Export("organisations.jsonl"),

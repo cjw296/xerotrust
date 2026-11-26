@@ -16,6 +16,12 @@ What can't be exported
 
   __ https://developer.xero.com/documentation/api/accounting/expenseclaims
 
+* **Employees** and other payroll data - Xero `removed`__ the Accounting API's ``Employees``
+  endpoint when it retired Global Pay Run. Payroll data lives in Xero's separate, region-specific
+  Payroll APIs, which need their own OAuth scopes and are not covered by ``xerotrust``.
+
+  __ https://developer.xero.com/changelog
+
 * **Custom reports** - Xero's `reports API`__ has no support for either running custom reports
   or exporting their configuration.
 
@@ -144,7 +150,6 @@ Export of the following types of content has been implemented:
 
 * **Organisations** - Organization profile and settings
 * **Users** - User accounts and permissions
-* **Employees** - Employee records
 * **BrandingThemes** - Invoice branding themes
 * **ContactGroups** - Contact grouping configurations
 
