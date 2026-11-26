@@ -2386,11 +2386,11 @@ class TestExport:
         # The error context should be in the exception notes
         compare(s.raised.__notes__, expected=["while exporting 'Contacts'"])
 
-        # Verify that only the first endpoint was successfully exported before the error
+        # The completed Accounts endpoint and its checkpoint survive the Contacts failure.
         check_files(
             {
-                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}\n',
-                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Test Account", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}\n',
-                # Note: latest.json should NOT exist because the export failed before completion
+                'Tenant 1/tenant.json': '{"tenantId": "t1", "tenantName": "Tenant 1"}',
+                'Tenant 1/accounts.jsonl': '{"AccountID": "a1", "Name": "Test Account", "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"}',
+                'Tenant 1/latest.json': '{\n  "Accounts": {\n    "UpdatedDateUTC": "2023-01-01T00:00:00+00:00"\n  }\n}',
             }
         )
